@@ -13,4 +13,5 @@ Instalación
 Para instalar simplemente descargar el directorio, y ejecutar el fichero tesorereria_foe.py
 
 
-![screenshot](https://github.com/jjgomera/tesoreria_foe/blob/master/images/screenshot.png?raw=true)
+.. image:: https://raw.githubusercontent.com/jjgomera/tesoreria_foe/master/images/screenshot.png
+    :alt: screenshot

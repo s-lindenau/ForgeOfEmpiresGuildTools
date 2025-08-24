@@ -5,136 +5,146 @@ import json
 
 from PyQt5 import QtWidgets, QtGui
 
-from lib import players, edades, report
+from lib import players, ages, report
 
 
 class Player(QtWidgets.QWidget):
-    """Widget con los edificios gremiales del jugador"""
+    """Widget with the player's guild buildings"""
 
     def __init__(self, parent=None):
         super(Player, self).__init__(parent)
 
-        self.Estatuas = []
-        self.Dirigibles = []
+        self.Statues = []
+        self.Airships = []
 
-        lyt = QtWidgets.QGridLayout(self)
+        layout = QtWidgets.QGridLayout(self)
 
-        lyt.addWidget(QtWidgets.QLabel("Edad"), 0, 1)
-        self.edad = QtWidgets.QComboBox()
-        for edad in edades:
-            self.edad.addItem(edad)
-        lyt.addWidget(self.edad, 0, 2)
-        lyt.addItem(QtWidgets.QSpacerItem(
+        layout.addWidget(QtWidgets.QLabel("Age"), 0, 1)
+        self.age = QtWidgets.QComboBox()
+        for age in ages:
+            self.age.addItem(age)
+        layout.addWidget(self.age, 0, 2)
+        layout.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Fixed,
             QtWidgets.QSizePolicy.Fixed), 1, 3)
-        lyt.addWidget(QtWidgets.QLabel("Arca"), 2, 1)
-        self.arca = QtWidgets.QSpinBox()
-        lyt.addWidget(self.arca, 2, 2)
-        lyt.addWidget(QtWidgets.QLabel("Observatorio"), 3, 1)
-        self.observatorio = QtWidgets.QSpinBox()
-        lyt.addWidget(self.observatorio, 3, 2)
-        lyt.addWidget(QtWidgets.QLabel("Atomium"), 4, 1)
+        layout.addWidget(QtWidgets.QLabel("Arc"), 2, 1)
+        self.arc = QtWidgets.QSpinBox()
+        self.arc.setRange(0, 999)
+        layout.addWidget(self.arc, 2, 2)
+        layout.addWidget(QtWidgets.QLabel("Observatory"), 3, 1)
+        self.observatory = QtWidgets.QSpinBox()
+        self.observatory.setRange(0, 999)
+        layout.addWidget(self.observatory, 3, 2)
+        layout.addWidget(QtWidgets.QLabel("Atomium"), 4, 1)
         self.atomium = QtWidgets.QSpinBox()
-        lyt.addWidget(self.atomium, 4, 2)
+        self.atomium.setRange(0, 999)
+        layout.addWidget(self.atomium, 4, 2)
 
-        lyt.addItem(QtWidgets.QSpacerItem(
+        layout.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Fixed,
             QtWidgets.QSizePolicy.Fixed), 5, 1)
 
-        groupEstatua = QtWidgets.QGroupBox("Estatua de honor")
-        lyt.addWidget(groupEstatua, 6, 1, 1, 3)
-        self.lytEstatua = QtWidgets.QVBoxLayout(groupEstatua)
-        lytButton = QtWidgets.QHBoxLayout()
-        addButton = QtWidgets.QToolButton()
-        addButton.setIcon(QtGui.QIcon("images/add.png"))
-        lytButton.addWidget(addButton)
-        deleteButton = QtWidgets.QToolButton()
-        deleteButton.setIcon(QtGui.QIcon("images/remove.png"))
-        lytButton.addWidget(deleteButton)
-        lytButton.addItem(QtWidgets.QSpacerItem(
+        group_statues = QtWidgets.QGroupBox("Statue of Honor")
+        layout.addWidget(group_statues, 6, 1, 1, 3)
+        self.layoutStatues = QtWidgets.QVBoxLayout(group_statues)
+        layout_button = QtWidgets.QHBoxLayout()
+        add_button = QtWidgets.QToolButton()
+        add_button.setIcon(QtGui.QIcon("images/add.png"))
+        layout_button.addWidget(add_button)
+        delete_button = QtWidgets.QToolButton()
+        delete_button.setIcon(QtGui.QIcon("images/remove.png"))
+        layout_button.addWidget(delete_button)
+        layout_button.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Fixed))
-        self.lytEstatua.addLayout(lytButton)
-        addButton.clicked.connect(self.addEstatua)
-        deleteButton.clicked.connect(self.deleteEstatua)
+        self.layoutStatues.addLayout(layout_button)
+        # noinspection PyUnresolvedReferences
+        add_button.clicked.connect(self.add_statue)
+        # noinspection PyUnresolvedReferences
+        delete_button.clicked.connect(self.delete_statue)
 
-        lyt.addItem(QtWidgets.QSpacerItem(
+        layout.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Fixed,
             QtWidgets.QSizePolicy.Fixed), 7, 1)
 
-        groupBano = QtWidgets.QGroupBox("Baño real")
-        lyt.addWidget(groupBano, 8, 1, 1, 3)
-        lytbano = QtWidgets.QGridLayout(groupBano)
-        self.bano = QtWidgets.QCheckBox("Baño Real")
-        lytbano.addWidget(self.bano, 0, 1, 1, 2)
-        lytbano.addWidget(QtWidgets.QLabel("Edad"), 1, 1)
-        self.edadBano = QtWidgets.QComboBox()
-        lytbano.addWidget(self.edadBano, 1, 2)
-        lytbano.addWidget(QtWidgets.QLabel("Nivel"), 2, 1)
-        self.nivelBano = QtWidgets.QSpinBox()
-        self.nivelBano.setRange(0, 6)
-        lytbano.addWidget(self.nivelBano, 2, 2)
-        self.bano.toggled.connect(self.edadBano.setEnabled)
-        self.bano.toggled.connect(self.nivelBano.setEnabled)
+        group_bath = QtWidgets.QGroupBox("Egyptian Royal Bath")
+        layout.addWidget(group_bath, 8, 1, 1, 3)
+        layout_bath = QtWidgets.QGridLayout(group_bath)
+        self.bath = QtWidgets.QCheckBox("Egyptian Royal Bath")
+        layout_bath.addWidget(self.bath, 0, 1, 1, 2)
+        layout_bath.addWidget(QtWidgets.QLabel("Age"), 1, 1)
+        self.ageBath = QtWidgets.QComboBox()
+        layout_bath.addWidget(self.ageBath, 1, 2)
+        layout_bath.addWidget(QtWidgets.QLabel("Level"), 2, 1)
+        self.levelBath = QtWidgets.QSpinBox()
+        self.levelBath.setRange(0, 6)
+        layout_bath.addWidget(self.levelBath, 2, 2)
+        # noinspection PyUnresolvedReferences
+        self.bath.toggled.connect(self.ageBath.setEnabled)
+        # noinspection PyUnresolvedReferences
+        self.bath.toggled.connect(self.levelBath.setEnabled)
 
-        lyt.addItem(QtWidgets.QSpacerItem(
+        layout.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Fixed,
             QtWidgets.QSizePolicy.Fixed), 9, 1)
 
-        groupDirigible = QtWidgets.QGroupBox("Dirigible nivel 11")
-        lyt.addWidget(groupDirigible, 10, 1, 1, 3)
-        self.lytDirigible = QtWidgets.QVBoxLayout(groupDirigible)
-        lytButton = QtWidgets.QHBoxLayout()
-        addButton = QtWidgets.QToolButton()
-        addButton.setIcon(QtGui.QIcon("images/add.png"))
-        lytButton.addWidget(addButton)
-        deleteButton = QtWidgets.QToolButton()
-        deleteButton.setIcon(QtGui.QIcon("images/remove.png"))
-        lytButton.addWidget(deleteButton)
-        lytButton.addItem(QtWidgets.QSpacerItem(
+        group_airship = QtWidgets.QGroupBox("Airship level 11")
+        layout.addWidget(group_airship, 10, 1, 1, 3)
+        self.layoutAirship = QtWidgets.QVBoxLayout(group_airship)
+        layout_button = QtWidgets.QHBoxLayout()
+        add_button = QtWidgets.QToolButton()
+        add_button.setIcon(QtGui.QIcon("images/add.png"))
+        layout_button.addWidget(add_button)
+        delete_button = QtWidgets.QToolButton()
+        delete_button.setIcon(QtGui.QIcon("images/remove.png"))
+        layout_button.addWidget(delete_button)
+        layout_button.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Fixed))
-        self.lytDirigible.addLayout(lytButton)
-        addButton.clicked.connect(self.addDirigible)
-        deleteButton.clicked.connect(self.deleteDirigible)
+        self.layoutAirship.addLayout(layout_button)
+        # noinspection PyUnresolvedReferences
+        add_button.clicked.connect(self.add_airship)
+        # noinspection PyUnresolvedReferences
+        delete_button.clicked.connect(self.delete_airship)
 
-        lyt.addItem(QtWidgets.QSpacerItem(
+        layout.addItem(QtWidgets.QSpacerItem(
             10, 10, QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Expanding), 12, 1, 1, 3)
 
-        for edad in edades:
-            self.edadBano.addItem(edad)
+        for age in ages:
+            self.ageBath.addItem(age)
 
-    def update(self, item, lastitem):
+    # noinspection PyMethodOverriding
+    def update(self, item, last_item):
 
         # Saved data of last item
-        if lastitem:
-            lastname = lastitem.text()
-            dat = {}
-            dat["Edad"] = self.edad.currentText()
-            dat["id"] = self.parent().lst.row(lastitem)+1
-            dat["Arca"] = self.arca.value()
-            dat["Observatorio"] = self.observatorio.value()
-            dat["Atomium"] = self.atomium.value()
+        if last_item:
+            lastname = last_item.text()
+            dat = {
+                "Age": self.age.currentText(), 
+                "id": self.parent().list.row(last_item) + 1,
+                "Arc": self.arc.value(), 
+                "Observatory": self.observatory.value(), 
+                "Atomium": self.atomium.value()}
 
             est = []
-            for estatua in self.Estatuas:
-                ed = {}
-                ed["Edad"] = estatua.itemAt(1).widget().currentText()
-                ed["Nivel"] = estatua.itemAt(3).widget().value()
+            for statue in self.Statues:
+                ed = {
+                    "Age": statue.itemAt(1).widget().currentText(), 
+                    "Level": statue.itemAt(3).widget().value()}
                 est.append(ed)
-            dat["Estatua"] = est
+            dat["Statue"] = est
 
-            if self.bano.isChecked():
-                bano = {}
-                bano["Edad"] = self.edadBano.currentText()
-                bano["Nivel"] = self.nivelBano.value()
-                dat["Baño"] = bano
+            if self.bath.isChecked():
+                bath = {
+                    "Age": self.ageBath.currentText(), 
+                    "Level": self.levelBath.value()}
+                dat["Egyptian Royal Bath"] = bath
 
-            dat["Dirigible"] = []
-            for dirigible in self.Dirigibles:
-                wdg = dirigible.itemAt(1).widget()
-                dat["Dirigible"].append(wdg.currentText())
+            dat["Airship"] = []
+            for airship in self.Airships:
+                widget = airship.itemAt(1).widget()
+                dat["Airship"].append(widget.currentText())
 
             players[lastname] = dat
 
@@ -142,131 +152,131 @@ class Player(QtWidgets.QWidget):
         name = item.text()
         dat = players[name]
 
-        self.edad.setCurrentText(dat["Edad"])
-        if "Arca" in dat:
-            self.arca.setValue(dat["Arca"])
+        self.age.setCurrentText(dat["Age"])
+        if "Arc" in dat:
+            self.arc.setValue(dat["Arc"])
         else:
-            self.arca.setValue(0)
+            self.arc.setValue(0)
 
-        if "Observatorio" in dat:
-            self.observatorio.setValue(dat["Observatorio"])
+        if "Observatory" in dat:
+            self.observatory.setValue(dat["Observatory"])
         else:
-            self.observatorio.setValue(0)
+            self.observatory.setValue(0)
 
         if "Atomium" in dat:
             self.atomium.setValue(dat["Atomium"])
         else:
             self.atomium.setValue(0)
 
-        self.edadBano.clear()
-        currentEdadId = edades.index(dat["Edad"])
-        for edad in edades[:currentEdadId+1]:
-            self.edadBano.addItem(edad)
+        self.ageBath.clear()
+        current_age_id = ages.index(dat["Age"])
+        for age in ages[:current_age_id + 1]:
+            self.ageBath.addItem(age)
 
-        if "Baño" in dat:
-            self.bano.setChecked(True)
-            self.edadBano.setCurrentText(dat["Baño"]["Edad"])
-            self.nivelBano.setValue(dat["Baño"]["Nivel"])
+        if "Bath" in dat:
+            self.bath.setChecked(True)
+            self.ageBath.setCurrentText(dat["Egyptian Royal Bath"]["Age"])
+            self.levelBath.setValue(dat["Egyptian Royal Bath"]["Level"])
         else:
-            self.bano.setChecked(False)
+            self.bath.setChecked(False)
 
-        # Borra widgets de las estatuas del anterior jugador
-        for lyt in self.Estatuas:
+        # Deletes widgets from the previous player's statues
+        for layout in self.Statues:
             while True:
-                wdg = lyt.takeAt(0)
-                if wdg is None:
+                widget = layout.takeAt(0)
+                if widget is None:
                     break
-                wdg.widget().deleteLater()
-                self.lytEstatua.removeItem(wdg)
+                widget.widget().deleteLater()
+                self.layoutStatues.removeItem(widget)
 
-        self.Estatuas = []
-        if "Estatua" in dat:
-            for estatua in dat["Estatua"]:
-                lyt = QtWidgets.QHBoxLayout()
-                lyt.addWidget(QtWidgets.QLabel("Edad"))
-                edad = QtWidgets.QComboBox()
-                for ed in edades[:currentEdadId+1]:
-                    edad.addItem(ed)
-                edad.setCurrentText(estatua["Edad"])
-                lyt.addWidget(edad)
-                lyt.addWidget(QtWidgets.QLabel("Nivel"))
-                nivel = QtWidgets.QSpinBox()
-                nivel.setRange(0, 8)
-                nivel.setValue(estatua["Nivel"])
-                lyt.addWidget(nivel)
-                self.lytEstatua.addLayout(lyt)
-                self.Estatuas.append(lyt)
+        self.Statues = []
+        if "Statue" in dat:
+            for statue in dat["Statue"]:
+                layout = QtWidgets.QHBoxLayout()
+                layout.addWidget(QtWidgets.QLabel("Age"))
+                age = QtWidgets.QComboBox()
+                for ed in ages[:current_age_id + 1]:
+                    age.addItem(ed)
+                age.setCurrentText(statue["Age"])
+                layout.addWidget(age)
+                layout.addWidget(QtWidgets.QLabel("Level"))
+                level = QtWidgets.QSpinBox()
+                level.setRange(0, 8)
+                level.setValue(statue["Level"])
+                layout.addWidget(level)
+                self.layoutStatues.addLayout(layout)
+                self.Statues.append(layout)
 
-        # Borra widgets de los dirigibles del anterior jugador
-        for lyt in self.Dirigibles:
+        # Delete widgets from the previous player's Airships
+        for layout in self.Airships:
             while True:
-                wdg = lyt.takeAt(0)
-                if wdg is None:
+                widget = layout.takeAt(0)
+                if widget is None:
                     break
-                wdg.widget().deleteLater()
-                self.lytDirigible.removeItem(wdg)
+                widget.widget().deleteLater()
+                self.layoutAirship.removeItem(widget)
 
-        self.Dirigibles = []
-        if "Dirigible" in dat:
-            for dirigible in dat["Dirigible"]:
-                lyt = QtWidgets.QHBoxLayout()
-                lyt.addWidget(QtWidgets.QLabel("Edad"))
-                edad = QtWidgets.QComboBox()
-                for ed in edades[:currentEdadId+1]:
-                    edad.addItem(ed)
-                edad.setCurrentText(dirigible)
-                lyt.addWidget(edad)
-                self.lytDirigible.addLayout(lyt)
-                self.Dirigibles.append(lyt)
+        self.Airships = []
+        if "Airship" in dat:
+            for airship in dat["Airship"]:
+                layout = QtWidgets.QHBoxLayout()
+                layout.addWidget(QtWidgets.QLabel("Age"))
+                age = QtWidgets.QComboBox()
+                for ed in ages[:current_age_id + 1]:
+                    age.addItem(ed)
+                age.setCurrentText(airship)
+                layout.addWidget(age)
+                self.layoutAirship.addLayout(layout)
+                self.Airships.append(layout)
 
-    def addEstatua(self):
-        lyt = QtWidgets.QHBoxLayout()
-        lyt.addWidget(QtWidgets.QLabel("Edad"))
-        edad = QtWidgets.QComboBox()
-        for ed in edades[:self.edad.currentIndex()+1]:
-            edad.addItem(ed)
-        edad.setCurrentIndex(self.edad.currentIndex())
-        lyt.addWidget(edad)
-        lyt.addWidget(QtWidgets.QLabel("Nivel"))
-        nivel = QtWidgets.QSpinBox()
-        nivel.setRange(0, 8)
-        nivel.setValue(1)
-        lyt.addWidget(nivel)
-        self.lytEstatua.addLayout(lyt)
-        self.Estatuas.append(lyt)
+    def add_statue(self):
+        layout = QtWidgets.QHBoxLayout()
+        layout.addWidget(QtWidgets.QLabel("Age"))
+        age = QtWidgets.QComboBox()
+        for ed in ages[:self.age.currentIndex() + 1]:
+            age.addItem(ed)
+        age.setCurrentIndex(self.age.currentIndex())
+        layout.addWidget(age)
+        layout.addWidget(QtWidgets.QLabel("Level"))
+        level = QtWidgets.QSpinBox()
+        level.setRange(0, 8)
+        level.setValue(1)
+        layout.addWidget(level)
+        self.layoutStatues.addLayout(layout)
+        self.Statues.append(layout)
 
-    def deleteEstatua(self):
-        if not self.Estatuas:
+    def delete_statue(self):
+        if not self.Statues:
             return
-        estatua = self.Estatuas.pop(-1)
+        statues = self.Statues.pop(-1)
         while True:
-            wdg = estatua.takeAt(0)
-            if wdg is None:
+            widget = statues.takeAt(0)
+            if widget is None:
                 break
-            wdg.widget().deleteLater()
-            self.lytEstatua.removeItem(wdg)
+            widget.widget().deleteLater()
+            self.layoutStatues.removeItem(widget)
 
-    def addDirigible(self):
-        lyt = QtWidgets.QHBoxLayout()
-        lyt.addWidget(QtWidgets.QLabel("Edad"))
-        edad = QtWidgets.QComboBox()
-        for ed in edades[:self.edad.currentIndex()+1]:
-            edad.addItem(ed)
-        edad.setCurrentIndex(self.edad.currentIndex())
-        lyt.addWidget(edad)
-        self.lytDirigible.addLayout(lyt)
-        self.Dirigibles.append(lyt)
+    def add_airship(self):
+        layout = QtWidgets.QHBoxLayout()
+        layout.addWidget(QtWidgets.QLabel("Age"))
+        age = QtWidgets.QComboBox()
+        for ed in ages[:self.age.currentIndex() + 1]:
+            age.addItem(ed)
+        age.setCurrentIndex(self.age.currentIndex())
+        layout.addWidget(age)
+        self.layoutAirship.addLayout(layout)
+        self.Airships.append(layout)
 
-    def deleteDirigible(self):
-        if not self.Dirigibles:
+    def delete_airship(self):
+        if not self.Airships:
             return
-        dirigible = self.Dirigibles.pop(-1)
+        airship = self.Airships.pop(-1)
         while True:
-            wdg = dirigible.takeAt(0)
-            if wdg is None:
+            widget = airship.takeAt(0)
+            if widget is None:
                 break
-            wdg.widget().deleteLater()
-            self.lytDirigible.removeItem(wdg)
+            widget.widget().deleteLater()
+            self.layoutAirship.removeItem(widget)
 
 
 class UI(QtWidgets.QWidget):
@@ -274,49 +284,56 @@ class UI(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super(UI, self).__init__(parent)
 
-        lyt = QtWidgets.QGridLayout(self)
-        lytButton = QtWidgets.QHBoxLayout()
-        addButton = QtWidgets.QToolButton()
-        addButton.setIcon(QtGui.QIcon("images/add.png"))
-        lytButton.addWidget(addButton)
+        layout = QtWidgets.QGridLayout(self)
+        layout_button = QtWidgets.QHBoxLayout()
+        add_button = QtWidgets.QToolButton()
+        add_button.setIcon(QtGui.QIcon("images/add.png"))
+        layout_button.addWidget(add_button)
         self.deleteButton = QtWidgets.QToolButton()
         self.deleteButton.setEnabled(False)
         self.deleteButton.setIcon(QtGui.QIcon("images/remove.png"))
-        lytButton.addWidget(self.deleteButton)
+        layout_button.addWidget(self.deleteButton)
         self.upButton = QtWidgets.QToolButton()
         self.upButton.setIcon(QtGui.QIcon("images/up.png"))
-        lytButton.addWidget(self.upButton)
+        layout_button.addWidget(self.upButton)
         self.downButton = QtWidgets.QToolButton()
         self.downButton.setIcon(QtGui.QIcon("images/down.png"))
-        lytButton.addWidget(self.downButton)
-        lytButton.addItem(QtWidgets.QSpacerItem(
+        layout_button.addWidget(self.downButton)
+        layout_button.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Fixed))
-        reportButton = QtWidgets.QToolButton()
-        reportButton.setIcon(QtGui.QIcon("images/report.png"))
-        lytButton.addWidget(reportButton)
-        lyt.addLayout(lytButton, 0, 1, 1, 3)
-        addButton.clicked.connect(self.addPlayer)
-        self.deleteButton.clicked.connect(self.deletePlayer)
+        report_button = QtWidgets.QToolButton()
+        report_button.setIcon(QtGui.QIcon("images/report.png"))
+        layout_button.addWidget(report_button)
+        layout.addLayout(layout_button, 0, 1, 1, 3)
+        # noinspection PyUnresolvedReferences
+        add_button.clicked.connect(self.add_player)
+        # noinspection PyUnresolvedReferences
+        self.deleteButton.clicked.connect(self.delete_player)
+        # noinspection PyUnresolvedReferences
         self.upButton.clicked.connect(self.up)
+        # noinspection PyUnresolvedReferences
         self.downButton.clicked.connect(self.down)
-        reportButton.clicked.connect(self.report)
+        # noinspection PyUnresolvedReferences
+        report_button.clicked.connect(self.report)
 
-        self.lst = QtWidgets.QListWidget()
-        self.lst.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
-                               QtWidgets.QSizePolicy.Minimum)
-        lyt.addWidget(self.lst, 1, 1, 1, 1)
+        self.list = QtWidgets.QListWidget()
+        self.list.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
+                                QtWidgets.QSizePolicy.Minimum)
+        layout.addWidget(self.list, 1, 1, 1, 1)
         self.player = Player()
-        lyt.addWidget(self.player, 1, 2, 1, 1)
-        self.lst.currentItemChanged.connect(self.player.update)
-        self.lst.currentRowChanged.connect(self.enableButton)
+        layout.addWidget(self.player, 1, 2, 1, 1)
+        # noinspection PyUnresolvedReferences
+        self.list.currentItemChanged.connect(self.player.update)
+        # noinspection PyUnresolvedReferences
+        self.list.currentRowChanged.connect(self.enable_button)
 
         for player in players:
             item = QtWidgets.QListWidgetItem(player)
-            self.lst.addItem(item)
-        self.lst.setCurrentRow(0)
+            self.list.addItem(item)
+        self.list.setCurrentRow(0)
 
-    def enableButton(self, row):
+    def enable_button(self, row):
         if row != -1:
             self.deleteButton.setEnabled(True)
         else:
@@ -327,39 +344,40 @@ class UI(QtWidgets.QWidget):
         else:
             self.upButton.setEnabled(True)
 
-        if row == self.lst.count()-1:
+        if row == self.list.count()-1:
             self.downButton.setEnabled(False)
         else:
             self.downButton.setEnabled(True)
 
     def up(self):
-        row = self.lst.currentRow()
-        item = self.lst.takeItem(row)
-        self.lst.insertItem(row-1, item)
-        self.lst.setCurrentRow(row-1)
+        row = self.list.currentRow()
+        item = self.list.takeItem(row)
+        self.list.insertItem(row - 1, item)
+        self.list.setCurrentRow(row - 1)
 
     def down(self):
-        row = self.lst.currentRow()
-        item = self.lst.takeItem(row)
-        self.lst.insertItem(row+1, item)
-        self.lst.setCurrentRow(row+1)
+        row = self.list.currentRow()
+        item = self.list.takeItem(row)
+        self.list.insertItem(row + 1, item)
+        self.list.setCurrentRow(row + 1)
 
-    def addPlayer(self):
-        name, bool = QtWidgets.QInputDialog.getText(
-            self, "Nombre", "Introduce nombre nuevo jugador", )
-        if bool:
-            players[name] = {"Edad": "Hierro", "id": self.lst.count()}
-            self.lst.addItem(name)
-            self.lst.setCurrentRow(self.lst.count()-1)
+    def add_player(self):
+        name, input_completed = QtWidgets.QInputDialog.getText(
+            self, "Name", "Enter new player name", )
+        if input_completed and len(name) > 0:
+            players[name] = {"Age": "Iron", "id": self.list.count()}
+            self.list.addItem(name)
+            self.list.setCurrentRow(self.list.count() - 1)
 
-    def deletePlayer(self):
-        player = self.lst.takeItem(self.lst.currentRow()).text()
+    def delete_player(self):
+        player = self.list.takeItem(self.list.currentRow()).text()
         del players[player]
 
-    def report(self):
+    @staticmethod
+    def report():
         txt = report()
         dialog = QtWidgets.QMessageBox(
-            QtWidgets.QMessageBox.Information, "Informe de bienes", txt)
+            QtWidgets.QMessageBox.Information, "Asset Report", txt)
         dialog.exec_()
 
     def closeEvent(self, event=None):

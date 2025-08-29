@@ -6,6 +6,7 @@ import json
 from PyQt5 import QtWidgets, QtGui
 
 from lib import players, ages, report
+from foe_helper_file_reader import read_players
 
 
 class Player(QtWidgets.QWidget):
@@ -77,7 +78,7 @@ class Player(QtWidgets.QWidget):
         layout_bath.addWidget(self.ageBath, 1, 2)
         layout_bath.addWidget(QtWidgets.QLabel("Level"), 2, 1)
         self.levelBath = QtWidgets.QSpinBox()
-        self.levelBath.setRange(0, 6)
+        self.levelBath.setRange(0, 99)
         layout_bath.addWidget(self.levelBath, 2, 2)
         # noinspection PyUnresolvedReferences
         self.bath.toggled.connect(self.ageBath.setEnabled)
@@ -201,7 +202,7 @@ class Player(QtWidgets.QWidget):
                 layout.addWidget(age)
                 layout.addWidget(QtWidgets.QLabel("Level"))
                 level = QtWidgets.QSpinBox()
-                level.setRange(0, 8)
+                level.setRange(0, 99)
                 level.setValue(statue["Level"])
                 layout.addWidget(level)
                 self.layoutStatues.addLayout(layout)
@@ -239,7 +240,7 @@ class Player(QtWidgets.QWidget):
         layout.addWidget(age)
         layout.addWidget(QtWidgets.QLabel("Level"))
         level = QtWidgets.QSpinBox()
-        level.setRange(0, 8)
+        level.setRange(0, 99)
         level.setValue(1)
         layout.addWidget(level)
         self.layoutStatues.addLayout(layout)
@@ -317,6 +318,10 @@ class UI(QtWidgets.QWidget):
         # noinspection PyUnresolvedReferences
         report_button.clicked.connect(self.report)
 
+        self.load_zip_button = QtWidgets.QPushButton("Load from ZIP")
+        self.load_zip_button.clicked.connect(self.load_zip_file)
+        layout_button.addWidget(self.load_zip_button)
+
         self.list = QtWidgets.QListWidget()
         self.list.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
                                 QtWidgets.QSizePolicy.Minimum)
@@ -365,7 +370,7 @@ class UI(QtWidgets.QWidget):
         name, input_completed = QtWidgets.QInputDialog.getText(
             self, "Name", "Enter new player name", )
         if input_completed and len(name) > 0:
-            players[name] = {"Age": "Iron", "id": self.list.count()}
+            players[name] = {"Age": "IronAge", "id": self.list.count()}
             self.list.addItem(name)
             self.list.setCurrentRow(self.list.count() - 1)
 
@@ -381,5 +386,32 @@ class UI(QtWidgets.QWidget):
         dialog.exec_()
 
     def closeEvent(self, event=None):
-        json.dump(players, open("data.json", "w"), indent=4)
+        # TODO: rewrite GUI data loading/saving
+        #json.dump(players, open("data.json", "w"), indent=4)
         self.close()
+
+    def load_zip_file(self):
+        selected_file = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', "Zip Files (*.zip)")
+        filename = selected_file[0]
+        if filename.__len__() <= 0:
+            # no file selected / dialog cancelled
+            return
+
+        players_from_file = read_players(filename)
+        if players_from_file.__len__() == 0:
+            self.show_alert("Data not loaded", "Data could not be loaded from the selected file", QtWidgets.QMessageBox.Warning, QtWidgets.QMessageBox.Ok)
+            return
+
+        json.dump(players_from_file, open("data.json", "w"), indent=4)
+        # for now user needs to restart GUI to load changes
+        self.show_alert("Data loaded", "Data loaded, please restart GUI to apply changes", QtWidgets.QMessageBox.Information, QtWidgets.QMessageBox.Ok)
+        self.close()
+
+    @staticmethod
+    def show_alert(title, message, icon, buttons):
+        msg_box = QtWidgets.QMessageBox()
+        msg_box.setIcon(icon)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setStandardButtons(buttons)
+        msg_box.exec_()

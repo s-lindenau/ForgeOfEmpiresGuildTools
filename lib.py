@@ -7,8 +7,10 @@ import os
 
 
 try:
-    players = json.load(open("data.json", "r"))
+    foe_data = json.load(open("data.json", "r"))
+    players = foe_data.get("players", {})
 except FileNotFoundError:
+    foe_data = {}
     players = {}
 
 players = {k: v for k, v in sorted(players.items(), key=lambda d: d[1]["id"])}

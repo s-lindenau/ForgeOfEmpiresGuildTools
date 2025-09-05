@@ -4,9 +4,9 @@
 import json
 
 from PyQt5 import QtWidgets, QtGui
-
-from lib import players, ages, report
-from foe_helper_file_reader import read_players
+from pyperclip import copy as clipboard_copy
+from lib import foe_data, players, ages, report
+from foe_helper_file_reader import read_foe_data, format_profile_link_template
 
 
 class Player(QtWidgets.QWidget):
@@ -68,22 +68,16 @@ class Player(QtWidgets.QWidget):
             30, 30, QtWidgets.QSizePolicy.Fixed,
             QtWidgets.QSizePolicy.Fixed), 7, 1)
 
-        group_bath = QtWidgets.QGroupBox("Egyptian Royal Bath")
-        layout.addWidget(group_bath, 8, 1, 1, 3)
-        layout_bath = QtWidgets.QGridLayout(group_bath)
-        self.bath = QtWidgets.QCheckBox("Egyptian Royal Bath")
-        layout_bath.addWidget(self.bath, 0, 1, 1, 2)
-        layout_bath.addWidget(QtWidgets.QLabel("Age"), 1, 1)
-        self.ageBath = QtWidgets.QComboBox()
-        layout_bath.addWidget(self.ageBath, 1, 2)
-        layout_bath.addWidget(QtWidgets.QLabel("Level"), 2, 1)
-        self.levelBath = QtWidgets.QSpinBox()
-        self.levelBath.setRange(0, 99)
-        layout_bath.addWidget(self.levelBath, 2, 2)
-        # noinspection PyUnresolvedReferences
-        self.bath.toggled.connect(self.ageBath.setEnabled)
-        # noinspection PyUnresolvedReferences
-        self.bath.toggled.connect(self.levelBath.setEnabled)
+        group_profiles = QtWidgets.QGroupBox("Player Profile (copy to clipboard with button)")
+        layout.addWidget(group_profiles, 8, 1, 1, 3)
+        layout_profiles = QtWidgets.QGridLayout(group_profiles)
+        self.profile_text_field = QtWidgets.QLineEdit()
+        self.profile_text_field.setReadOnly(True)
+        layout_profiles.addWidget(self.profile_text_field, 0, 1, 1, 1)
+        copy_link_button = QtWidgets.QToolButton()
+        copy_link_button.setIcon(QtGui.QIcon("images/right.png"))
+        copy_link_button.clicked.connect(self.copy_profile_link_to_clipboard)
+        layout_profiles.addWidget(copy_link_button, 0, 2, 1, 1)
 
         layout.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Fixed,
@@ -112,8 +106,6 @@ class Player(QtWidgets.QWidget):
             10, 10, QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Expanding), 12, 1, 1, 3)
 
-        for age in ages:
-            self.ageBath.addItem(age)
 
     # noinspection PyMethodOverriding
     def update(self, item, last_item):
@@ -121,7 +113,7 @@ class Player(QtWidgets.QWidget):
         # Saved data of last item
         if last_item:
             lastname = last_item.text()
-            dat = {
+            player_data = {
                 "Age": self.age.currentText(), 
                 "id": self.parent().list.row(last_item) + 1,
                 "Arc": self.arc.value(), 
@@ -134,52 +126,40 @@ class Player(QtWidgets.QWidget):
                     "Age": statue.itemAt(1).widget().currentText(), 
                     "Level": statue.itemAt(3).widget().value()}
                 est.append(ed)
-            dat["Statue"] = est
+            player_data["Statue"] = est
 
-            if self.bath.isChecked():
-                bath = {
-                    "Age": self.ageBath.currentText(), 
-                    "Level": self.levelBath.value()}
-                dat["Egyptian Royal Bath"] = bath
-
-            dat["Airship"] = []
+            player_data["Airship"] = []
             for airship in self.Airships:
                 widget = airship.itemAt(1).widget()
-                dat["Airship"].append(widget.currentText())
+                player_data["Airship"].append(widget.currentText())
 
-            players[lastname] = dat
+            players[lastname] = player_data
 
         # Update properties with new player
         name = item.text()
-        dat = players[name]
+        player_data = players[name]
 
-        self.age.setCurrentText(dat["Age"])
-        if "Arc" in dat:
-            self.arc.setValue(dat["Arc"])
+        self.age.setCurrentText(player_data["Age"])
+        if "Arc" in player_data:
+            self.arc.setValue(player_data["Arc"])
         else:
             self.arc.setValue(0)
 
-        if "Observatory" in dat:
-            self.observatory.setValue(dat["Observatory"])
+        if "Observatory" in player_data:
+            self.observatory.setValue(player_data["Observatory"])
         else:
             self.observatory.setValue(0)
 
-        if "Atomium" in dat:
-            self.atomium.setValue(dat["Atomium"])
+        if "Atomium" in player_data:
+            self.atomium.setValue(player_data["Atomium"])
         else:
             self.atomium.setValue(0)
 
-        self.ageBath.clear()
-        current_age_id = ages.index(dat["Age"])
-        for age in ages[:current_age_id + 1]:
-            self.ageBath.addItem(age)
+        profile_link = format_profile_link_template(foe_data, player_data)
+        self.profile_text_field.setText(profile_link)
+        self.profile_text_field.setCursorPosition(0)
 
-        if "Bath" in dat:
-            self.bath.setChecked(True)
-            self.ageBath.setCurrentText(dat["Egyptian Royal Bath"]["Age"])
-            self.levelBath.setValue(dat["Egyptian Royal Bath"]["Level"])
-        else:
-            self.bath.setChecked(False)
+        current_age_id = ages.index(player_data["Age"])
 
         # Deletes widgets from the previous player's statues
         for layout in self.Statues:
@@ -191,8 +171,8 @@ class Player(QtWidgets.QWidget):
                 self.layoutStatues.removeItem(widget)
 
         self.Statues = []
-        if "Statue" in dat:
-            for statue in dat["Statue"]:
+        if "Statue" in player_data:
+            for statue in player_data["Statue"]:
                 layout = QtWidgets.QHBoxLayout()
                 layout.addWidget(QtWidgets.QLabel("Age"))
                 age = QtWidgets.QComboBox()
@@ -218,8 +198,8 @@ class Player(QtWidgets.QWidget):
                 self.layoutAirship.removeItem(widget)
 
         self.Airships = []
-        if "Airship" in dat:
-            for airship in dat["Airship"]:
+        if "Airship" in player_data:
+            for airship in player_data["Airship"]:
                 layout = QtWidgets.QHBoxLayout()
                 layout.addWidget(QtWidgets.QLabel("Age"))
                 age = QtWidgets.QComboBox()
@@ -278,6 +258,10 @@ class Player(QtWidgets.QWidget):
                 break
             widget.widget().deleteLater()
             self.layoutAirship.removeItem(widget)
+
+    def copy_profile_link_to_clipboard(self):
+        link_value = self.profile_text_field.text()
+        clipboard_copy(link_value)
 
 
 class UI(QtWidgets.QWidget):
@@ -397,12 +381,13 @@ class UI(QtWidgets.QWidget):
             # no file selected / dialog cancelled
             return
 
-        players_from_file = read_players(filename)
+        foe_data = read_foe_data(filename)
+        players_from_file = foe_data.get("players", {})
         if players_from_file.__len__() == 0:
             self.show_alert("Data not loaded", "Data could not be loaded from the selected file", QtWidgets.QMessageBox.Warning, QtWidgets.QMessageBox.Ok)
             return
 
-        json.dump(players_from_file, open("data.json", "w"), indent=4)
+        json.dump(foe_data, open("data.json", "w"), indent=4)
         # for now user needs to restart GUI to load changes
         self.show_alert("Data loaded", "Data loaded, please restart GUI to apply changes", QtWidgets.QMessageBox.Information, QtWidgets.QMessageBox.Ok)
         self.close()

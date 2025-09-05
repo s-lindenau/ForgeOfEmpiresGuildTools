@@ -16,7 +16,33 @@ GREAT_BUILDING_OBSERVATORY = "Observatory"
 GREAT_BUILDING_ATOMIUM = "Atomium"
 STATUE_NAME = "Statue of Honor - Lv."
 
+# todo make configurable
+FOE_LANGUAGE = "en"
+FOE_SERVER = "en20"
+FOE_WORLD_NAME = "Vingrid"
+PLAYER_PROFILE_LINK_TEMPLATE = "https://foestats.com/{language}/{server}/players/profile/?server={server}&world={world}&id={player_id}"
+
 logging.basicConfig(level=logging.INFO)
+
+
+def read_foe_data(zip_path: str) -> dict[str, any]:
+    """
+    Reads FoE data from a ZIP file exported from FoE-Helper (containing IndexedDB data as json files).
+        Args:
+        zip_path (str): Path to the ZIP file.
+
+    Returns:
+        dict: A dictionary of FoE data including server, world name, and players.
+    """
+
+    foe_tools_data = {
+        "language": FOE_LANGUAGE,
+        "server": FOE_SERVER,
+        "world": FOE_WORLD_NAME,
+        "player_profile_link_template": PLAYER_PROFILE_LINK_TEMPLATE,
+        "players": read_players(zip_path)
+    }
+    return foe_tools_data
 
 
 def read_players(zip_path: str) -> dict[str, dict]:
@@ -60,6 +86,7 @@ def read_players(zip_path: str) -> dict[str, dict]:
             players_table = extract_table(database, PLAYER_TABLE)
 
             for row in players_table["rows"]:
+                player_guild_id = row.get("id")
                 player_id = row.get("player_id")
                 player_name = row.get("name")
                 player_age = row.get("era")
@@ -76,7 +103,8 @@ def read_players(zip_path: str) -> dict[str, dict]:
 
                 players_from_file[player_name] = {
                     "Age": player_age,
-                    "id": player_id,
+                    "id": player_guild_id,
+                    "player_id": player_id,
                     "Arc": extract_great_building_level(arc),
                     "Observatory": extract_great_building_level(observatory),
                     "Atomium": extract_great_building_level(atomium),
@@ -164,6 +192,15 @@ def extract_guild_buildings(buildings):
                 }
             )
     return guild_buildings
+
+
+def format_profile_link_template(foe_data, current_player):
+    link_template = foe_data.get("player_profile_link_template", "")
+    return link_template.format(
+        language = foe_data.get("language", ""),
+        server = foe_data.get("server", ""),
+        world = foe_data.get("world", ""),
+        player_id = current_player.get("player_id", ""))
 
 
 if __name__ == '__main__':

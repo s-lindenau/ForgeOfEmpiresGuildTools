@@ -11,7 +11,7 @@ All-in-one GUI overview to manage your guild and determine the least active memb
 ### Requirements
 #### Functional
 * Be a Leader of a guild in Forge of Empires
-* Play with the [FoE-Tools](https://foe-tools.com/) browser extension (at least gather the data before starting a members analysis)
+* Play with the [FoE-Helper](https://foe-helper.com/) browser extension (at least gather the data before starting a members analysis)
   * Visit the guilds members page for the data to be collected
   * Visit GE, GbG and Qi results at the end of a season for the activity data to be collected 
   * Visit individual guild members cities for their buildings data to be collected
@@ -31,12 +31,18 @@ Install the dependencies as mentioned above
 Run the file `tesorereria_foe.py`:
 * `python tesorereria_foe.py`
 
-### Downloading FoE-Tools data
-To get the data of your guild members, you need to use the FoE-Tools browser extension.
+### Downloading FoE-Helper data
+To get the data of your guild members, you need to use the FoE-Helper browser extension.
 * Play the game with the extension enabled
 * Export the following files from the extension:
-  * FoE-Tools: Settings -> Other -> Scroll down -> Import/Export -> Export -> Open tool -> (Select all) -> Export to ZIP
-  * FoE: Global -> Guild -> Top left menu button -> Guild Contributions -> Browse all pages you want to analyze -> Export to CSV with FoE-Tools
+  * FoE-Helper: Settings -> Other -> Scroll down -> Import/Export -> Export -> Open tool -> (Select all) -> Export to ZIP
+    * **Required**: GuildMemberStat
+    * **Required**: GexStat
+    * _Optional: Events_
+    * _Optional: FPCollector_
+    * _Optional: GuildFights_
+    * _Optional: Qi_
+  * FoE: Global -> Guild -> Top left menu button -> Guild Contributions -> Browse all pages you want to analyze -> Export to CSV with FoE-Helper
 
 ### Screenshots
 

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+import logging
 
 from PyQt5 import QtWidgets, QtGui
 from pyperclip import copy as clipboard_copy
@@ -109,35 +110,10 @@ class Player(QtWidgets.QWidget):
 
     # noinspection PyMethodOverriding
     def update(self, item, last_item):
-
-        # Saved data of last item
-        if last_item:
-            lastname = last_item.text()
-            player_data = {
-                "Age": self.age.currentText(), 
-                "id": self.parent().list.row(last_item) + 1,
-                "Arc": self.arc.value(), 
-                "Observatory": self.observatory.value(), 
-                "Atomium": self.atomium.value()}
-
-            est = []
-            for statue in self.Statues:
-                ed = {
-                    "Age": statue.itemAt(1).widget().currentText(), 
-                    "Level": statue.itemAt(3).widget().value()}
-                est.append(ed)
-            player_data["Statue"] = est
-
-            player_data["Airship"] = []
-            for airship in self.Airships:
-                widget = airship.itemAt(1).widget()
-                player_data["Airship"].append(widget.currentText())
-
-            players[lastname] = player_data
-
         # Update properties with new player
         name = item.text()
         player_data = players[name]
+        logging.debug(f"Selected player {name}: {player_data}")
 
         self.age.setCurrentText(player_data["Age"])
         if "Arc" in player_data:
@@ -270,27 +246,31 @@ class UI(QtWidgets.QWidget):
         super(UI, self).__init__(parent)
 
         layout = QtWidgets.QGridLayout(self)
-        layout_button = QtWidgets.QHBoxLayout()
+        layout_header = QtWidgets.QHBoxLayout()
         add_button = QtWidgets.QToolButton()
         add_button.setIcon(QtGui.QIcon("images/add.png"))
-        layout_button.addWidget(add_button)
+        layout_header.addWidget(add_button)
         self.deleteButton = QtWidgets.QToolButton()
         self.deleteButton.setEnabled(False)
         self.deleteButton.setIcon(QtGui.QIcon("images/remove.png"))
-        layout_button.addWidget(self.deleteButton)
+        layout_header.addWidget(self.deleteButton)
         self.upButton = QtWidgets.QToolButton()
         self.upButton.setIcon(QtGui.QIcon("images/up.png"))
-        layout_button.addWidget(self.upButton)
+        layout_header.addWidget(self.upButton)
         self.downButton = QtWidgets.QToolButton()
         self.downButton.setIcon(QtGui.QIcon("images/down.png"))
-        layout_button.addWidget(self.downButton)
-        layout_button.addItem(QtWidgets.QSpacerItem(
+        layout_header.addWidget(self.downButton)
+        guild_name = foe_data.get("server_info", {}).get("guild_name", "unknown")
+        self.guild_name_label = QtWidgets.QLabel(f"Guild: {guild_name}")
+        layout_header.addWidget(self.guild_name_label)
+
+        layout_header.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Fixed))
         report_button = QtWidgets.QToolButton()
         report_button.setIcon(QtGui.QIcon("images/report.png"))
-        layout_button.addWidget(report_button)
-        layout.addLayout(layout_button, 0, 1, 1, 3)
+        layout_header.addWidget(report_button)
+        layout.addLayout(layout_header, 0, 1, 1, 3)
         # noinspection PyUnresolvedReferences
         add_button.clicked.connect(self.add_player)
         # noinspection PyUnresolvedReferences
@@ -304,7 +284,7 @@ class UI(QtWidgets.QWidget):
 
         self.load_zip_button = QtWidgets.QPushButton("Load from ZIP")
         self.load_zip_button.clicked.connect(self.load_zip_file)
-        layout_button.addWidget(self.load_zip_button)
+        layout_header.addWidget(self.load_zip_button)
 
         self.list = QtWidgets.QListWidget()
         self.list.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
@@ -381,13 +361,13 @@ class UI(QtWidgets.QWidget):
             # no file selected / dialog cancelled
             return
 
-        foe_data = read_foe_data(filename)
-        players_from_file = foe_data.get("players", {})
+        foe_data_read = read_foe_data(filename)
+        players_from_file = foe_data_read.get("players", {})
         if players_from_file.__len__() == 0:
             self.show_alert("Data not loaded", "Data could not be loaded from the selected file", QtWidgets.QMessageBox.Warning, QtWidgets.QMessageBox.Ok)
             return
 
-        json.dump(foe_data, open("data.json", "w"), indent=4)
+        json.dump(foe_data_read, open("data.json", "w"), indent=4)
         # for now user needs to restart GUI to load changes
         self.show_alert("Data loaded", "Data loaded, please restart GUI to apply changes", QtWidgets.QMessageBox.Information, QtWidgets.QMessageBox.Ok)
         self.close()

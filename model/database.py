@@ -31,18 +31,6 @@ class Table:
         """
         return self.rows
 
-    def to_dict(self) -> dict:
-        """
-        Convert the table to a dictionary representation.
-
-        Returns:
-            dict: The dictionary representation of the table.
-        """
-        return {
-            "tableName": self.table_name,
-            "rows": self.rows
-        }
-
 
 class Database:
     def __init__(self, format_name: str, format_version: str, database_name: str, database_version: int):
@@ -88,16 +76,3 @@ class Database:
 
         logging.error(f"Table '{table_name}' not found in the database!")
         return Table(table_name, [])
-
-    def to_dict(self) -> dict:
-        """
-        Convert the database to a dictionary representation.
-
-        Returns:
-            dict: The dictionary representation of the database.
-        """
-        return {
-            "formatName": self.format_name,
-            "formatVersion": self.format_version,
-            "tables": self.tables
-        }

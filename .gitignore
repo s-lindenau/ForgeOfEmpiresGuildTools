@@ -2,3 +2,4 @@ data.json
 *.iml
 .idea/**
 __pycache__
+*.lnk

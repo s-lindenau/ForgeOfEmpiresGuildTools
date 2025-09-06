@@ -27,7 +27,6 @@ GREAT_BUILDINGS_KEY = "greatbuildings"
 GREAT_BUILDING_THE_ARC = "The Arc"
 GREAT_BUILDING_OBSERVATORY = "Observatory"
 GREAT_BUILDING_ATOMIUM = "Atomium"
-STATUE_NAME = "Statue of Honor - Lv."
 
 # todo make configurable or detect from data
 FOE_LANGUAGE_DEFAULT = "en"
@@ -125,11 +124,16 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
     players_table = database.get_table(GUILD_MEMBER_STATS_PLAYER_TABLE)
 
     for row in players_table.rows:
-        player_guild_id = row.get("id")
+        player_rank_in_guild = row.get("rank")[1]   # array of size 2: [previous rank, current rank]
         player_id = row.get("player_id")
         player_name = row.get("name")
         player_age = row.get("era")
+        player_deleted_date = row.get("deleted")    # timestamp of when deleted, 0 when still active in guild
         logging.debug(f"Processing player: {player_id}")
+
+        if player_deleted_date > 0:
+            # deleted players are no longer relevant for the guild
+            continue
 
         great_buildings = row.get(GREAT_BUILDINGS_KEY)
         arc = extract_great_building_by_name(great_buildings, GREAT_BUILDING_THE_ARC)
@@ -138,16 +142,15 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
 
         # TODO: guild buildings appear twice: once with a "power" entry and once with a "resources":"goods" entry. Great buildings are also in this list!
         guild_buildings = row.get(GUILD_BUILDINGS_KEY)
-        statue = extract_guild_buildings_by_name(guild_buildings, STATUE_NAME, False)
+        # todo: process guild buildings
 
         parsed_player_data = {
             "Age": player_age,
-            "id": player_guild_id,
+            "id": player_rank_in_guild,
             "player_id": player_id,
             "Arc": extract_great_building_level(arc),
             "Observatory": extract_great_building_level(observatory),
             "Atomium": extract_great_building_level(atomium),
-            "Statue": extract_guild_buildings(statue),
             "ExpeditionStats": {"Points": 0, "SolvedEncounters": 0, "Trial": 0}
         }
         players_from_file.add_player(player_id, player_name, parsed_player_data)
@@ -237,7 +240,7 @@ def extract_great_building_by_name(buildings, building_name):
     return None
 
 
-def extract_guild_buildings_by_name(buildings, building_name, exact=True):
+def extract_guild_buildings_by_name(buildings, building_name, is_exact_name_match=True):
     if buildings is None:
         return None
 
@@ -247,7 +250,7 @@ def extract_guild_buildings_by_name(buildings, building_name, exact=True):
 
     guild_buildings_by_name = []
     for building in guild_buildings:
-        if exact:
+        if is_exact_name_match:
             if building.get("name") == building_name:
                 guild_buildings_by_name.append(building)
         else:
@@ -279,10 +282,10 @@ def format_profile_link_template(foe_data, current_player):
     link_template = foe_data.get("player_profile_link_template", "")
     server_info = foe_data.get("server_info", {})
     return link_template.format(
-        language = server_info.get("language", ""),
-        server = server_info.get("server", ""),
-        world = server_info.get("world", ""),
-        player_id = current_player.get("player_id", ""))
+        language=server_info.get("language", ""),
+        server=server_info.get("server", ""),
+        world=server_info.get("world", ""),
+        player_id=current_player.get("player_id", ""))
 
 
 if __name__ == '__main__':
@@ -294,8 +297,8 @@ if __name__ == '__main__':
 
     if not logging.getLogger().hasHandlers():
         logging.basicConfig(
-            level = LOG_LEVEL,
-            format = "%(asctime)s - %(levelname)s - %(message)s"
+            level=LOG_LEVEL,
+            format="%(asctime)s - %(levelname)s - %(message)s"
         )
 
     zip_path_command_line_argument = sys.argv[1]

@@ -21,6 +21,7 @@ GUILD_EXPEDITION_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GexStat"
 GUILD_EXPEDITION_PARTICIPATION_TABLE = "participation"
 GUILD_EXPEDITION_PARTICIPANTS_ROWS = "participants"
 GUILD_EXPEDITION_RANKING_TABLE = "ranking"
+GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY = "gexweek"
 
 GUILD_BUILDINGS_KEY = "guildbuildings"
 GREAT_BUILDINGS_KEY = "greatbuildings"
@@ -31,6 +32,8 @@ GREAT_BUILDING_ATOMIUM = "Atomium"
 # todo make configurable or detect from data
 FOE_LANGUAGE_DEFAULT = "en"
 PLAYER_PROFILE_LINK_TEMPLATE = "https://foestats.com/{language}/{server}/players/profile/?server={server}&world={world}&id={player_id}"
+
+DEFAULT_SCORE_ZERO = 0
 
 
 def read_foe_data(zip_path: str) -> dict[str, any]:
@@ -136,9 +139,9 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             continue
 
         great_buildings = row.get(GREAT_BUILDINGS_KEY)
-        arc = extract_great_building_by_name(great_buildings, GREAT_BUILDING_THE_ARC)
-        observatory = extract_great_building_by_name(great_buildings, GREAT_BUILDING_OBSERVATORY)
-        atomium = extract_great_building_by_name(great_buildings, GREAT_BUILDING_ATOMIUM)
+        arc = get_great_building_by_name(great_buildings, GREAT_BUILDING_THE_ARC)
+        observatory = get_great_building_by_name(great_buildings, GREAT_BUILDING_OBSERVATORY)
+        atomium = get_great_building_by_name(great_buildings, GREAT_BUILDING_ATOMIUM)
 
         # TODO: guild buildings appear twice: once with a "power" entry and once with a "resources":"goods" entry. Great buildings are also in this list!
         guild_buildings = row.get(GUILD_BUILDINGS_KEY)
@@ -148,10 +151,11 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "Age": player_age,
             "id": player_rank_in_guild,
             "player_id": player_id,
-            "Arc": extract_great_building_level(arc),
-            "Observatory": extract_great_building_level(observatory),
-            "Atomium": extract_great_building_level(atomium),
-            "ExpeditionStats": {"Points": 0, "SolvedEncounters": 0, "Trial": 0}
+            "Arc": get_great_building_level(arc),
+            "Observatory": get_great_building_level(observatory),
+            "Atomium": get_great_building_level(atomium),
+            "ExpeditionStats": get_expedition_stats(),
+            "ExpeditionStatsPrevious": get_expedition_stats()
         }
         players_from_file.add_player(player_id, player_name, parsed_player_data)
 
@@ -163,32 +167,31 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
 
     database = parse_database(dexie_db)
     expedition_participation_table = database.get_table(GUILD_EXPEDITION_PARTICIPATION_TABLE)
+    expedition_weeks_sorted_desc = get_sorted_gexweek_values(expedition_participation_table)
 
-    # todo: find most recent by `gexweek` epoch timestamp
-    row = expedition_participation_table.rows[0]
+    if len(expedition_weeks_sorted_desc) < 1:
+        logging.warning("No guild expedition participation found in file")
+        return
 
-    guild_id = row.get("currentGuildID")
-    for participant in row.get(GUILD_EXPEDITION_PARTICIPATION_TABLE, []):
-        # add guild expedition stats for player
-        player_id = participant.get("player_id")
-        logging.debug(f"Processing guild expedition participant: {player_id}")
+    # Look back up to 2 expedition weeks (current, previous) for stats
+    current_expedition_week = expedition_weeks_sorted_desc[1]
+    previous_expedition_week = 0
+    if len(expedition_weeks_sorted_desc) > 1:
+        previous_expedition_week = expedition_weeks_sorted_desc[2]
 
-        points = participant.get("expeditionPoints", 0)
-        solved_encounters = participant.get("solvedEncounters", 0)
-        trial = participant.get("trial", 0)
+    current_guild_expedition_week_stats = next((r for r in expedition_participation_table.rows if r.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) == current_expedition_week), None)
+    previous_guild_expedition_week_stats = next((r for r in expedition_participation_table.rows if r.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) == previous_expedition_week), None)
 
-        player_by_id = players_from_file.get_player_by_id(player_id)
-        # removed players can still be in the expedition stats, but we don't need their data anymore
-        if player_by_id is not None:
-            player_by_id["ExpeditionStats"] = {
-                "Points": points,
-                "SolvedEncounters": solved_encounters,
-                "Trial": trial,
-            }
+    guild_id = current_guild_expedition_week_stats.get("currentGuildID")
+    get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStats", current_guild_expedition_week_stats)
+    get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStatsPrevious", previous_guild_expedition_week_stats)
 
     expedition_ranking_table = database.get_table(GUILD_EXPEDITION_RANKING_TABLE)
-    # todo: find most recent by `gexweek` epoch timestamp or matching `gexweek` from participation
-    row = expedition_ranking_table.rows[0]
+    row = next((r for r in expedition_ranking_table.rows if r.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) == current_expedition_week), None)
+    if row is None:
+        logging.error("Could not find Guild and Server information in Guild Expedition Ranking table")
+        return
+
     for participant in row.get(GUILD_EXPEDITION_PARTICIPANTS_ROWS, []):
         # Find the current guild, other guilds participating in the expedition are not relevant
         if participant.get("guildId", 0) == guild_id:
@@ -200,8 +203,27 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
             break
 
 
+def get_guild_expedition_stats_for_players(players_from_file, expedition_stats_key: str, row):
+    if row is None:
+        return
+
+    for participant in row.get(GUILD_EXPEDITION_PARTICIPATION_TABLE, []):
+        # add guild expedition stats for player
+        player_id = participant.get("player_id")
+        logging.debug(f"Processing guild expedition participant: {player_id}")
+
+        points = participant.get("expeditionPoints", DEFAULT_SCORE_ZERO)
+        solved_encounters = participant.get("solvedEncounters", DEFAULT_SCORE_ZERO)
+        trial = participant.get("trial", DEFAULT_SCORE_ZERO)
+
+        player_by_id = players_from_file.get_player_by_id(player_id)
+        # removed players can still be in the expedition stats, but we don't need their data anymore
+        if player_by_id is not None:
+            player_by_id[expedition_stats_key] = get_expedition_stats(points, solved_encounters, trial)
+
+
 def parse_database(dexie_db) -> Database:
-    if "data" in dexie_db:
+    if "data" in dexie_db and "data" in dexie_db["data"]:
         format_name = dexie_db["formatName"]
         format_version = dexie_db["formatVersion"]
         database_name = dexie_db["data"]["databaseName"]
@@ -231,7 +253,7 @@ def find_file_path_with_substring(directory, substring):
     return None
 
 
-def extract_great_building_by_name(buildings, building_name):
+def get_great_building_by_name(buildings, building_name):
     if buildings is None:
         return None
     for building in buildings:
@@ -240,7 +262,7 @@ def extract_great_building_by_name(buildings, building_name):
     return None
 
 
-def extract_guild_buildings_by_name(buildings, building_name, is_exact_name_match=True):
+def get_guild_buildings_by_name(buildings, building_name, is_exact_name_match=True):
     if buildings is None:
         return None
 
@@ -259,13 +281,13 @@ def extract_guild_buildings_by_name(buildings, building_name, is_exact_name_matc
     return guild_buildings_by_name
 
 
-def extract_great_building_level(building):
+def get_great_building_level(building):
     if building is None:
         return 0
     return building.get("level", 0)
 
 
-def extract_guild_buildings(buildings):
+def get_guild_buildings(buildings):
     guild_buildings = []
     if buildings is not None:
         for building in buildings:
@@ -276,6 +298,29 @@ def extract_guild_buildings(buildings):
                 }
             )
     return guild_buildings
+
+
+def get_expedition_stats(points: int = DEFAULT_SCORE_ZERO, solved_encounters: int = DEFAULT_SCORE_ZERO, trial: int = DEFAULT_SCORE_ZERO):
+    return {
+        "Points": points,
+        "SolvedEncounters": solved_encounters,
+        "Trial": trial
+    }
+
+
+def get_sorted_gexweek_values(expedition_participation_table):
+    """
+    Extracts all 'gexweek' values from the rows of the expedition_participation_table
+    and sorts them in descending order.
+
+    Args:
+        expedition_participation_table: A table object containing rows with 'gexweek' keys.
+
+    Returns:
+        list: A list of sorted 'gexweek' values in descending order.
+    """
+    gexweek_values = [row.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) for row in expedition_participation_table.rows if GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY in row]
+    return sorted(gexweek_values, reverse=True)
 
 
 def format_profile_link_template(foe_data, current_player):
@@ -291,7 +336,7 @@ def format_profile_link_template(foe_data, current_player):
 if __name__ == '__main__':
     import sys
 
-    if sys.argv.__len__() != 2:
+    if len(sys.argv) != 2:
         print(f"Usage: {sys.argv[0]} <path_to_foe_helper_export_zip_file>")
         sys.exit(1)
 

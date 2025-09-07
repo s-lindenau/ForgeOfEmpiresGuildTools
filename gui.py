@@ -176,13 +176,13 @@ class UI(QtWidgets.QWidget):
     def load_zip_file(self):
         selected_file = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', '', "Zip Files (*.zip)")
         filename = selected_file[0]
-        if filename.__len__() <= 0:
+        if len(filename) <= 0:
             # no file selected / dialog cancelled
             return
 
         foe_data_read = read_foe_data(filename)
         players_from_file = foe_data_read.get("players", {})
-        if players_from_file.__len__() == 0:
+        if len(players_from_file) == 0:
             self.show_alert("Data not loaded", "Data could not be loaded from the selected file", QtWidgets.QMessageBox.Warning, QtWidgets.QMessageBox.Ok)
             return
 

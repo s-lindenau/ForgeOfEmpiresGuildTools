@@ -5,19 +5,12 @@
 import json
 import os
 import logging
+import sys
+
+from model.foe_guild_tools_data import FoeGuildToolsData
 
 # Change to DEBUG for more verbose output
 LOG_LEVEL = logging.WARNING
-
-try:
-    foe_data = json.load(open("data.json", "r"))
-    players = foe_data.get("players", {})
-except FileNotFoundError:
-    foe_data = {}
-    players = {}
-
-players = {k: v for k, v in sorted(players.items(), key=lambda d: d[1]["id"])}
-
 
 total_by_age = {
     "BronzeAge": 0,
@@ -150,6 +143,22 @@ expeditionLevel2 = {
 }
 
 
+def read_data_from_stored_json() -> FoeGuildToolsData:
+    try:
+        foe_data_from_file = FoeGuildToolsData.from_dict(json.load(open("data.json", "r")))
+    except FileNotFoundError:
+        logging.debug("data.json file not found, starting with empty data.")
+        foe_data_from_file = FoeGuildToolsData.empty()
+    except json.JSONDecodeError as e:
+        logging.error("data.json file is corrupt, please delete and try again!", exc_info=e)
+        sys.exit(-1)
+    except Exception as e:
+        logging.error(f"Error loading data.json; {e}", exc_info=e)
+        sys.exit(-100)
+
+    return foe_data_from_file
+
+
 def arc_goods_for_level(level):
     """Goods delivered by the ark based on the level"""
     if level == 0:
@@ -230,14 +239,14 @@ def atomium_goods_for_level(level):
         return level*2-3
 
 
-def report():
+def report(players: dict):
     try:
-        return do_report()
+        return do_report(players)
     except Exception as e:
         logging.error(f"Failed to generate report: {e}", exc_info=e)
 
 
-def do_report():
+def do_report(players: dict):
     """Collection income amount by age"""
     for player, player_data in players.items():
         if "Arc" in player_data:
@@ -265,5 +274,5 @@ if __name__ == "__main__":
             level=LOG_LEVEL,
             format="%(asctime)s - %(levelname)s - %(message)s"
         )
-
-    print(report())
+    foe_data = read_data_from_stored_json()
+    print(report(foe_data.players.get_all_players()))

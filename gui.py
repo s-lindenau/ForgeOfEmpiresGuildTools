@@ -6,15 +6,18 @@ import logging
 
 from PyQt5 import QtWidgets, QtGui
 from pyperclip import copy as clipboard_copy
-from lib import foe_data, players, ages, report
-from foe_helper_file_reader import read_foe_data, format_profile_link_template
+from lib import ages, report
+from foe_helper_file_reader import read_foe_data_from_zip, format_profile_link_template
+from model.foe_guild_tools_data import FoeGuildToolsData
 
 
-class Player(QtWidgets.QWidget):
+class PlayerGui(QtWidgets.QWidget):
     """Widget with the player's guild buildings"""
 
-    def __init__(self, parent=None):
-        super(Player, self).__init__(parent)
+    def __init__(self, foe_data: FoeGuildToolsData, parent=None):
+        super(PlayerGui, self).__init__(parent)
+        self.foe_data = foe_data
+        self.players = foe_data.players
 
         layout = QtWidgets.QGridLayout(self)
         current_row = 0
@@ -89,7 +92,7 @@ class Player(QtWidgets.QWidget):
     def do_update(self, item):
         # Update properties with new player
         name = item.text()
-        player_data = players[name]
+        player_data = self.players.get_player_by_name(name)
         logging.debug(f"Selected player {name}: {player_data}")
 
         self.selected_player.setText(name)
@@ -109,7 +112,7 @@ class Player(QtWidgets.QWidget):
         else:
             self.atomium.setValue(0)
 
-        profile_link = format_profile_link_template(foe_data, player_data)
+        profile_link = format_profile_link_template(self.foe_data, player_data)
         self.profile_text_field.setText(profile_link)
         self.profile_text_field.setCursorPosition(0)
 
@@ -127,13 +130,15 @@ class Player(QtWidgets.QWidget):
 
 class UI(QtWidgets.QWidget):
 
-    def __init__(self, parent=None):
+    def __init__(self, foe_data: FoeGuildToolsData, parent=None):
         super(UI, self).__init__(parent)
+        self.foe_data = foe_data
+        self.players = {k: v for k, v in sorted(foe_data.players.get_all_players().items(), key=lambda d: d[1]["id"])}
 
         layout = QtWidgets.QGridLayout(self)
         layout_header = QtWidgets.QHBoxLayout()
 
-        guild_name = foe_data.get("server_info", {}).get("guild_name", "unknown")
+        guild_name = self.foe_data.guild_info.get_guild_name()
         self.guild_name_label = QtWidgets.QLabel(f"Guild: {guild_name}")
         layout_header.addWidget(self.guild_name_label)
 
@@ -156,19 +161,18 @@ class UI(QtWidgets.QWidget):
         self.list.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
                                 QtWidgets.QSizePolicy.Minimum)
         layout.addWidget(self.list, 1, 1, 1, 1)
-        self.player = Player()
+        self.player = PlayerGui(self.foe_data)
         layout.addWidget(self.player, 1, 2, 1, 1)
         # noinspection PyUnresolvedReferences
         self.list.currentItemChanged.connect(self.player.update)
 
-        for player in players:
+        for player in self.players:
             item = QtWidgets.QListWidgetItem(player)
             self.list.addItem(item)
         self.list.setCurrentRow(0)
 
-    @staticmethod
-    def report():
-        txt = report()
+    def report(self):
+        txt = report(self.players)
         dialog = QtWidgets.QMessageBox(
             QtWidgets.QMessageBox.Information, "Guild Expedition Level 2 Report", f"<pre>{txt}</pre>")
         dialog.exec_()
@@ -180,13 +184,13 @@ class UI(QtWidgets.QWidget):
             # no file selected / dialog cancelled
             return
 
-        foe_data_read = read_foe_data(filename)
-        players_from_file = foe_data_read.get("players", {})
+        foe_data_read = read_foe_data_from_zip(filename)
+        players_from_file = foe_data_read.players.get_all_players()
         if len(players_from_file) == 0:
             self.show_alert("Data not loaded", "Data could not be loaded from the selected file", QtWidgets.QMessageBox.Warning, QtWidgets.QMessageBox.Ok)
             return
 
-        json.dump(foe_data_read, open("data.json", "w"), indent=4)
+        json.dump(foe_data_read, open("data.json", "w"), indent=4, default=vars)
         # for now user needs to restart GUI to load changes
         self.show_alert("Data loaded", "Data loaded, please restart GUI to apply changes", QtWidgets.QMessageBox.Information, QtWidgets.QMessageBox.Ok)
         self.close()

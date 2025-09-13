@@ -10,6 +10,7 @@ import zipfile
 
 from model.database import Database
 from model.players import Players
+from model.foe_guild_tools_data import GuildInfo, FoeGuildToolsData
 
 # Change to DEBUG for more verbose output
 LOG_LEVEL = logging.INFO
@@ -36,41 +37,35 @@ PLAYER_PROFILE_LINK_TEMPLATE = "https://foestats.com/{language}/{server}/players
 DEFAULT_SCORE_ZERO = 0
 
 
-def read_foe_data(zip_path: str) -> dict[str, any]:
+def read_foe_data_from_zip(zip_path: str) -> FoeGuildToolsData:
     """
     Reads FoE data from a ZIP file exported from FoE-Helper (containing IndexedDB data as json files).
         Args:
         zip_path (str): Path to the ZIP file.
 
     Returns:
-        dict: A dictionary of FoE data including server information and players.
+        dict: A FoeGuildToolsData object with FoE data including guild information and players.
     """
 
-    foe_server_info = {
-        "language": FOE_LANGUAGE_DEFAULT,
-        "server": "",
-        "world": "",
-        "guild_id": "",
-        "guild_name": "",
-    }
+    foe_guild_info = GuildInfo(FOE_LANGUAGE_DEFAULT, "", "", 0, "")
 
-    foe_player_data = read_players(zip_path, foe_server_info)
+    foe_player_data = read_players(zip_path, foe_guild_info)
 
-    foe_tools_data = {
-        "player_profile_link_template": PLAYER_PROFILE_LINK_TEMPLATE,
-        "server_info": foe_server_info,
-        "players": foe_player_data.get_all_players(),
-    }
+    foe_tools_data = FoeGuildToolsData(
+         PLAYER_PROFILE_LINK_TEMPLATE,
+         foe_guild_info,
+         foe_player_data
+    )
     return foe_tools_data
 
 
-def read_players(zip_path: str, server_info: dict) -> Players:
+def read_players(zip_path: str, guild_info: GuildInfo) -> Players:
     """
     Reads player data from a ZIP file exported from FoE-Helper (containing IndexedDB data as json files).
 
     Args:
         zip_path (str): Path to the ZIP file.
-        server_info (dict): A dictionary to store server information (language, server, world).
+        guild_info (GuildInfo): A GuildInfo object to store guild information (name, language, server, world).
 
     Returns:
         Players: An instance of the Players class containing player data.
@@ -111,7 +106,7 @@ def read_players(zip_path: str, server_info: dict) -> Players:
 
         try:
             logging.info(f"Processing extracted file: {guild_expedition_stats_path}")
-            process_guild_expedition_file(guild_expedition_stats_path, players_from_file, server_info)
+            process_guild_expedition_file(guild_expedition_stats_path, players_from_file, guild_info)
         except Exception as e:
             logging.error(f"Failed to process file {guild_expedition_stats_path}: {e}", exc_info=e)
 
@@ -151,6 +146,7 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "Age": player_age,
             "id": player_rank_in_guild,
             "player_id": player_id,
+            "player_name": player_name,
             "Arc": get_great_building_level(arc),
             "Observatory": get_great_building_level(observatory),
             "Atomium": get_great_building_level(atomium),
@@ -160,7 +156,7 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
         players_from_file.add_player(player_id, player_name, parsed_player_data)
 
 
-def process_guild_expedition_file(guild_expedition_stats_path, players_from_file: Players, server_info: dict):
+def process_guild_expedition_file(guild_expedition_stats_path, players_from_file: Players, guild_info: GuildInfo):
     # Load the JSON data from the file
     with open(guild_expedition_stats_path, mode="r", encoding="utf-8") as file:
         dexie_db = json.load(file)
@@ -195,11 +191,11 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
     for participant in row.get(GUILD_EXPEDITION_PARTICIPANTS_ROWS, []):
         # Find the current guild, other guilds participating in the expedition are not relevant
         if participant.get("guildId", 0) == guild_id:
-            server_info["server"] = participant.get("worldId", "")
-            server_info["world"] = participant.get("worldName", "")
-            server_info["guild_id"] = guild_id
-            server_info["guild_name"] = participant.get("name", "")
-            logging.info(f"Found current guild in server: {server_info}")
+            guild_info.server = participant.get("worldId", "")
+            guild_info.world = participant.get("worldName", "")
+            guild_info.guild_id = guild_id
+            guild_info.guild_name = participant.get("name", "")
+            logging.info(f"Found current guild in server: {guild_info}")
             break
 
 
@@ -323,13 +319,13 @@ def get_sorted_gexweek_values(expedition_participation_table):
     return sorted(gexweek_values, reverse=True)
 
 
-def format_profile_link_template(foe_data, current_player):
-    link_template = foe_data.get("player_profile_link_template", "")
-    server_info = foe_data.get("server_info", {})
+def format_profile_link_template(foe_data: FoeGuildToolsData, current_player):
+    link_template = foe_data.player_profile_link_template
+    guild_info = foe_data.guild_info
     return link_template.format(
-        language=server_info.get("language", ""),
-        server=server_info.get("server", ""),
-        world=server_info.get("world", ""),
+        language=guild_info.language,
+        server=guild_info.server,
+        world=guild_info.world,
         player_id=current_player.get("player_id", ""))
 
 
@@ -347,7 +343,7 @@ if __name__ == '__main__':
         )
 
     zip_path_command_line_argument = sys.argv[1]
-    players = read_players(zip_path_command_line_argument, {})
+    players = read_players(zip_path_command_line_argument, GuildInfo.from_dict({}))
     player_data = players.get_all_players()
     for player in player_data:
         logging.info(f"Player: {player}: {player_data[player]}")

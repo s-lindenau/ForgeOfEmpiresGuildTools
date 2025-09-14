@@ -8,7 +8,7 @@ import os.path
 import tempfile
 import zipfile
 
-from model.database import Database
+from model.database import Database, Table
 from model.players import Players
 from model.foe_guild_tools_data import GuildInfo, FoeGuildToolsData
 
@@ -20,9 +20,15 @@ GUILD_MEMBER_STATS_PLAYER_TABLE = "player"
 
 GUILD_EXPEDITION_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GexStat"
 GUILD_EXPEDITION_PARTICIPATION_TABLE = "participation"
+GUILD_EXPEDITION_PARTICIPATION_ROWS = "participation"
 GUILD_EXPEDITION_PARTICIPANTS_ROWS = "participants"
 GUILD_EXPEDITION_RANKING_TABLE = "ranking"
-GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY = "gexweek"
+GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY = "gexweek"        # This is the START date-time of the GE week
+
+GUILD_BATTLEGROUNDS_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GuildFights"
+GUILD_BATTLEGROUNDS_PARTICIPATION_HISTORY_TABLE = "history"
+GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY = "gbground"   # This is the END date-time of the GbG round
+GUILD_BATTLEGROUNDS_PARTICIPATION_ROWS = "participation"
 
 GUILD_BUILDINGS_KEY = "guildbuildings"
 GREAT_BUILDINGS_KEY = "greatbuildings"
@@ -47,7 +53,7 @@ def read_foe_data_from_zip(zip_path: str) -> FoeGuildToolsData:
         dict: A FoeGuildToolsData object with FoE data including guild information and players.
     """
 
-    foe_guild_info = GuildInfo(FOE_LANGUAGE_DEFAULT, "", "", 0, "")
+    foe_guild_info = GuildInfo.from_dict({"language": FOE_LANGUAGE_DEFAULT})
 
     foe_player_data = read_players(zip_path, foe_guild_info)
 
@@ -110,6 +116,18 @@ def read_players(zip_path: str, guild_info: GuildInfo) -> Players:
         except Exception as e:
             logging.error(f"Failed to process file {guild_expedition_stats_path}: {e}", exc_info=e)
 
+        # Guild Battlegrounds stats
+        guild_battlegrounds_stats_path = find_file_path_with_substring(temp_dir, GUILD_BATTLEGROUNDS_STATS_FILE_NAME_SUBSTRING)
+        if guild_battlegrounds_stats_path is None:
+            logging.error(f"Could not find the {GUILD_BATTLEGROUNDS_STATS_FILE_NAME_SUBSTRING} JSON file in the ZIP.")
+            return players_from_file
+
+        try:
+            logging.info(f"Processing extracted file: {guild_battlegrounds_stats_path}")
+            process_guild_battlegrounds_file(guild_battlegrounds_stats_path, players_from_file)
+        except Exception as e:
+            logging.error(f"Failed to process file {guild_battlegrounds_stats_path}: {e}", exc_info=e)
+
     return players_from_file
 
 
@@ -150,8 +168,10 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "Arc": get_great_building_level(arc),
             "Observatory": get_great_building_level(observatory),
             "Atomium": get_great_building_level(atomium),
-            "ExpeditionStats": get_expedition_stats(),
-            "ExpeditionStatsPrevious": get_expedition_stats()
+            "ExpeditionStats": {},
+            "ExpeditionStatsPrevious": {},
+            "BattleGroundsStats": {},
+            "BattleGroundsStatsPrevious": {},
         }
         players_from_file.add_player(player_id, player_name, parsed_player_data)
 
@@ -163,7 +183,7 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
 
     database = parse_database(dexie_db)
     expedition_participation_table = database.get_table(GUILD_EXPEDITION_PARTICIPATION_TABLE)
-    expedition_weeks_sorted_desc = get_sorted_gexweek_values(expedition_participation_table)
+    expedition_weeks_sorted_desc = get_sorted_timestamp_values_from_table_rows_by_key(expedition_participation_table, GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY)
 
     if len(expedition_weeks_sorted_desc) < 1:
         logging.warning("No guild expedition participation found in file")
@@ -179,8 +199,8 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
     previous_guild_expedition_week_stats = next((r for r in expedition_participation_table.rows if r.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) == previous_expedition_week), None)
 
     guild_id = current_guild_expedition_week_stats.get("currentGuildID")
-    get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStats", current_guild_expedition_week_stats)
-    get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStatsPrevious", previous_guild_expedition_week_stats)
+    get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStats", current_guild_expedition_week_stats, current_expedition_week)
+    get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStatsPrevious", previous_guild_expedition_week_stats, previous_expedition_week)
 
     expedition_ranking_table = database.get_table(GUILD_EXPEDITION_RANKING_TABLE)
     row = next((r for r in expedition_ranking_table.rows if r.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) == current_expedition_week), None)
@@ -199,23 +219,56 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
             break
 
 
-def get_guild_expedition_stats_for_players(players_from_file, expedition_stats_key: str, row):
+def get_guild_expedition_stats_for_players(players_from_file, expedition_stats_key: str, row, expedition_week_timestamp: int):
     if row is None:
         return
 
-    for participant in row.get(GUILD_EXPEDITION_PARTICIPATION_TABLE, []):
+    for participant in row.get(GUILD_EXPEDITION_PARTICIPATION_ROWS, []):
         # add guild expedition stats for player
         player_id = participant.get("player_id")
         logging.debug(f"Processing guild expedition participant: {player_id}")
 
-        points = participant.get("expeditionPoints", DEFAULT_SCORE_ZERO)
-        solved_encounters = participant.get("solvedEncounters", DEFAULT_SCORE_ZERO)
-        trial = participant.get("trial", DEFAULT_SCORE_ZERO)
-
         player_by_id = players_from_file.get_player_by_id(player_id)
         # removed players can still be in the expedition stats, but we don't need their data anymore
         if player_by_id is not None:
-            player_by_id[expedition_stats_key] = get_expedition_stats(points, solved_encounters, trial)
+            player_by_id[expedition_stats_key] = get_expedition_stats(expedition_week_timestamp, participant)
+
+
+def process_guild_battlegrounds_file(guild_battlegrounds_stats_path, players_from_file: Players):
+    # Load the JSON data from the file
+    with open(guild_battlegrounds_stats_path, mode="r", encoding="utf-8") as file:
+        dexie_db = json.load(file)
+
+    database = parse_database(dexie_db)
+    battlegrounds_participation_table = database.get_table(GUILD_BATTLEGROUNDS_PARTICIPATION_HISTORY_TABLE)
+    battlegrounds_rounds_sorted_desc = get_sorted_timestamp_values_from_table_rows_by_key(battlegrounds_participation_table, GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY)
+
+    # Look back up to 2 battlegrounds rounds (current, previous) for stats
+    current_battlegrounds_round = battlegrounds_rounds_sorted_desc[1]
+    previous_battlegrounds_round = 0
+    if len(battlegrounds_rounds_sorted_desc) > 1:
+        previous_battlegrounds_round = battlegrounds_rounds_sorted_desc[2]
+
+    current_battlegrounds_round_stats = next((r for r in battlegrounds_participation_table.rows if r.get(GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY) == current_battlegrounds_round), None)
+    previous_battlegrounds_round_stats = next((r for r in battlegrounds_participation_table.rows if r.get(GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY) == previous_battlegrounds_round), None)
+
+    get_guild_battlegrounds_stats_for_players(players_from_file, "BattleGroundsStats", current_battlegrounds_round_stats, current_battlegrounds_round)
+    get_guild_battlegrounds_stats_for_players(players_from_file, "BattleGroundsStatsPrevious", previous_battlegrounds_round_stats, previous_battlegrounds_round)
+
+
+def get_guild_battlegrounds_stats_for_players(players_from_file, battlegrounds_stats_key: str, row, battlegrounds_round_timestamp: int):
+    if row is None:
+        return
+
+    for participant in row.get(GUILD_BATTLEGROUNDS_PARTICIPATION_ROWS, []):
+        # add guild battlegrounds stats for player
+        player_id = participant.get("player_id")
+        logging.debug(f"Processing guild battlegrounds participant: {player_id}")
+
+        player_by_id = players_from_file.get_player_by_id(player_id)
+        # removed players can still be in the battlegrounds stats, but we don't need their data anymore
+        if player_by_id is not None:
+            player_by_id[battlegrounds_stats_key] = get_battlegrounds_stats(battlegrounds_round_timestamp, participant)
 
 
 def parse_database(dexie_db) -> Database:
@@ -296,27 +349,40 @@ def get_guild_buildings(buildings):
     return guild_buildings
 
 
-def get_expedition_stats(points: int = DEFAULT_SCORE_ZERO, solved_encounters: int = DEFAULT_SCORE_ZERO, trial: int = DEFAULT_SCORE_ZERO):
+def get_expedition_stats(expedition_week_timestamp: int, participant: dict):
     return {
-        "Points": points,
-        "SolvedEncounters": solved_encounters,
-        "Trial": trial
+        "ExpeditionWeekTimestamp": expedition_week_timestamp,
+        "Rank": participant.get("rank", DEFAULT_SCORE_ZERO),
+        "Points": participant.get("expeditionPoints", DEFAULT_SCORE_ZERO),
+        "SolvedEncounters": participant.get("solvedEncounters", DEFAULT_SCORE_ZERO),
+        "Trial": participant.get("trial", DEFAULT_SCORE_ZERO)
     }
 
 
-def get_sorted_gexweek_values(expedition_participation_table):
+def get_battlegrounds_stats(battlegrounds_round_timestamp: int, participant: dict):
+    return {
+        "BattleGroundsRoundTimestamp": battlegrounds_round_timestamp,
+        "Rank": participant.get("rank", DEFAULT_SCORE_ZERO),
+        "BattlesWon": participant.get("battlesWon", DEFAULT_SCORE_ZERO),
+        "NegotiationsWon": participant.get("negotiationsWon", DEFAULT_SCORE_ZERO),
+        "Attrition": participant.get("attrition", DEFAULT_SCORE_ZERO)
+    }
+
+
+def get_sorted_timestamp_values_from_table_rows_by_key(table: Table, key: str):
     """
-    Extracts all 'gexweek' values from the rows of the expedition_participation_table
+    Extracts all {key} values from the rows of the given table
     and sorts them in descending order.
 
     Args:
-        expedition_participation_table: A table object containing rows with 'gexweek' keys.
+        table: A table object containing rows with {key} keys.
+        key: The key to search for in the table rows
 
     Returns:
-        list: A list of sorted 'gexweek' values in descending order.
+        list: A list of sorted {key} values in descending order.
     """
-    gexweek_values = [row.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) for row in expedition_participation_table.rows if GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY in row]
-    return sorted(gexweek_values, reverse=True)
+    values_for_key = [row.get(key) for row in table.rows if key in row]
+    return sorted(values_for_key, reverse=True)
 
 
 def format_profile_link_template(foe_data: FoeGuildToolsData, current_player):
@@ -343,7 +409,7 @@ if __name__ == '__main__':
         )
 
     zip_path_command_line_argument = sys.argv[1]
-    players = read_players(zip_path_command_line_argument, GuildInfo.from_dict({}))
+    players = read_players(zip_path_command_line_argument, GuildInfo.from_dict({"language": FOE_LANGUAGE_DEFAULT}))
     player_data = players.get_all_players()
     for player in player_data:
         logging.info(f"Player: {player}: {player_data[player]}")

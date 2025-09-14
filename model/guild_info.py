@@ -28,3 +28,6 @@ class GuildInfo:
         if len(self.guild_name) < 1:
             return "unknown"
         return self.guild_name
+
+    def __str__(self):
+        return str(self.__dict__)

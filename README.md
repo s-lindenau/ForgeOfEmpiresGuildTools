@@ -47,10 +47,10 @@ To get the data of your guild members, you need to use the FoE-Helper browser ex
   * FoE-Helper: Settings -> Tab "Other" -> Scroll down -> Import/Export -> Open tool -> Tab "Export" -> (Select items) -> Export to ZIP
     * **Required**: GuildMemberStat
     * **Required**: GexStat
+    * **Required**: GuildFights
+    * **Required**: Qi
     * _Optional: Events_
-    * _Optional: FPCollector_
-    * _Optional: GuildFights_
-    * _Optional: Qi_
+    * _Optional: FPCollector_ 
   * FoE menu: Global -> Guild -> Top left `≡` button -> Guild Contributions -> Browse all pages you want to analyze -> Export to CSV with FoE-Helper
 
 ### Screenshots

@@ -18,23 +18,28 @@ LOG_LEVEL = logging.INFO
 GUILD_MEMBER_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GuildMemberStat"
 GUILD_MEMBER_STATS_PLAYER_TABLE = "player"
 
+GUILD_BUILDINGS_KEY = "guildbuildings"
+GREAT_BUILDINGS_KEY = "greatbuildings"
+GREAT_BUILDING_THE_ARC = "The Arc"
+GREAT_BUILDING_OBSERVATORY = "Observatory"
+GREAT_BUILDING_ATOMIUM = "Atomium"
+
 GUILD_EXPEDITION_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GexStat"
 GUILD_EXPEDITION_PARTICIPATION_TABLE = "participation"
 GUILD_EXPEDITION_PARTICIPATION_ROWS = "participation"
 GUILD_EXPEDITION_PARTICIPANTS_ROWS = "participants"
 GUILD_EXPEDITION_RANKING_TABLE = "ranking"
-GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY = "gexweek"        # This is the START date-time of the GE week
+GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY = "gexweek"        # This is the END date-time of the GE week
 
 GUILD_BATTLEGROUNDS_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GuildFights"
 GUILD_BATTLEGROUNDS_PARTICIPATION_HISTORY_TABLE = "history"
 GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY = "gbground"   # This is the END date-time of the GbG round
 GUILD_BATTLEGROUNDS_PARTICIPATION_ROWS = "participation"
 
-GUILD_BUILDINGS_KEY = "guildbuildings"
-GREAT_BUILDINGS_KEY = "greatbuildings"
-GREAT_BUILDING_THE_ARC = "The Arc"
-GREAT_BUILDING_OBSERVATORY = "Observatory"
-GREAT_BUILDING_ATOMIUM = "Atomium"
+QUANTUM_INCURSION_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_Qi"
+QUANTUM_INCURSION_PARTICIPATION_HISTORY_TABLE = "history"
+QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY = "qiround"      # This is the END date-time of the Qi round
+QUANTUM_INCURSION_PARTICIPATION_ROWS = "participation"
 
 # todo make configurable or detect from data
 FOE_LANGUAGE_DEFAULT = "en"
@@ -128,6 +133,18 @@ def read_players(zip_path: str, guild_info: GuildInfo) -> Players:
         except Exception as e:
             logging.error(f"Failed to process file {guild_battlegrounds_stats_path}: {e}", exc_info=e)
 
+        # Quantum Incursion stats
+        quantum_incursion_stats_path = find_file_path_with_substring(temp_dir, QUANTUM_INCURSION_STATS_FILE_NAME_SUBSTRING)
+        if quantum_incursion_stats_path is None:
+            logging.error(f"Could not find the {QUANTUM_INCURSION_STATS_FILE_NAME_SUBSTRING} JSON file in the ZIP.")
+            return players_from_file
+
+        try:
+            logging.info(f"Processing extracted file: {quantum_incursion_stats_path}")
+            process_quantum_incursion_file(quantum_incursion_stats_path, players_from_file)
+        except Exception as e:
+            logging.error(f"Failed to process file {quantum_incursion_stats_path}: {e}", exc_info=e)
+
     return players_from_file
 
 
@@ -172,6 +189,8 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "ExpeditionStatsPrevious": {},
             "BattleGroundsStats": {},
             "BattleGroundsStatsPrevious": {},
+            "QuantumIncursionStats": {},
+            "QuantumIncursionStatsPrevious": {}
         }
         players_from_file.add_player(player_id, player_name, parsed_player_data)
 
@@ -190,13 +209,13 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
         return
 
     # Look back up to 2 expedition weeks (current, previous) for stats
-    current_expedition_week = expedition_weeks_sorted_desc[1]
+    current_expedition_week = expedition_weeks_sorted_desc[0]
     previous_expedition_week = 0
     if len(expedition_weeks_sorted_desc) > 1:
-        previous_expedition_week = expedition_weeks_sorted_desc[2]
+        previous_expedition_week = expedition_weeks_sorted_desc[1]
 
-    current_guild_expedition_week_stats = next((r for r in expedition_participation_table.rows if r.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) == current_expedition_week), None)
-    previous_guild_expedition_week_stats = next((r for r in expedition_participation_table.rows if r.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) == previous_expedition_week), None)
+    current_guild_expedition_week_stats = get_row_where_key_matches_value(expedition_participation_table, GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY, current_expedition_week)
+    previous_guild_expedition_week_stats = get_row_where_key_matches_value(expedition_participation_table, GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY, previous_expedition_week)
 
     guild_id = current_guild_expedition_week_stats.get("currentGuildID")
     get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStats", current_guild_expedition_week_stats, current_expedition_week)
@@ -244,13 +263,13 @@ def process_guild_battlegrounds_file(guild_battlegrounds_stats_path, players_fro
     battlegrounds_rounds_sorted_desc = get_sorted_timestamp_values_from_table_rows_by_key(battlegrounds_participation_table, GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY)
 
     # Look back up to 2 battlegrounds rounds (current, previous) for stats
-    current_battlegrounds_round = battlegrounds_rounds_sorted_desc[1]
+    current_battlegrounds_round = battlegrounds_rounds_sorted_desc[0]
     previous_battlegrounds_round = 0
     if len(battlegrounds_rounds_sorted_desc) > 1:
-        previous_battlegrounds_round = battlegrounds_rounds_sorted_desc[2]
+        previous_battlegrounds_round = battlegrounds_rounds_sorted_desc[1]
 
-    current_battlegrounds_round_stats = next((r for r in battlegrounds_participation_table.rows if r.get(GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY) == current_battlegrounds_round), None)
-    previous_battlegrounds_round_stats = next((r for r in battlegrounds_participation_table.rows if r.get(GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY) == previous_battlegrounds_round), None)
+    current_battlegrounds_round_stats = get_row_where_key_matches_value(battlegrounds_participation_table, GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY, current_battlegrounds_round)
+    previous_battlegrounds_round_stats = get_row_where_key_matches_value(battlegrounds_participation_table, GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY, previous_battlegrounds_round)
 
     get_guild_battlegrounds_stats_for_players(players_from_file, "BattleGroundsStats", current_battlegrounds_round_stats, current_battlegrounds_round)
     get_guild_battlegrounds_stats_for_players(players_from_file, "BattleGroundsStatsPrevious", previous_battlegrounds_round_stats, previous_battlegrounds_round)
@@ -269,6 +288,43 @@ def get_guild_battlegrounds_stats_for_players(players_from_file, battlegrounds_s
         # removed players can still be in the battlegrounds stats, but we don't need their data anymore
         if player_by_id is not None:
             player_by_id[battlegrounds_stats_key] = get_battlegrounds_stats(battlegrounds_round_timestamp, participant)
+
+
+def process_quantum_incursion_file(quantum_incursion_stats_path, players_from_file: Players):
+    # Load the JSON data from the file
+    with open(quantum_incursion_stats_path, mode="r", encoding="utf-8") as file:
+        dexie_db = json.load(file)
+
+    database = parse_database(dexie_db)
+    quantum_incursion_participation_table = database.get_table(QUANTUM_INCURSION_PARTICIPATION_HISTORY_TABLE)
+    quantum_incursion_rounds_sorted_desc = get_sorted_timestamp_values_from_table_rows_by_key(quantum_incursion_participation_table, QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY)
+
+    # Look back up to 2 quantum incursion rounds (current, previous) for stats
+    current_quantum_incursion_round = quantum_incursion_rounds_sorted_desc[0]
+    previous_quantum_incursion_round = 0
+    if len(quantum_incursion_rounds_sorted_desc) > 1:
+        previous_quantum_incursion_round = quantum_incursion_rounds_sorted_desc[1]
+
+    current_quantum_incursion_round_stats = get_row_where_key_matches_value(quantum_incursion_participation_table, QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY, current_quantum_incursion_round)
+    previous_quantum_incursion_round_stats = get_row_where_key_matches_value(quantum_incursion_participation_table, QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY, previous_quantum_incursion_round)
+
+    get_quantum_incursion_stats_for_players(players_from_file, "QuantumIncursionStats", current_quantum_incursion_round_stats, current_quantum_incursion_round)
+    get_quantum_incursion_stats_for_players(players_from_file, "QuantumIncursionStatsPrevious", previous_quantum_incursion_round_stats, previous_quantum_incursion_round)
+
+
+def get_quantum_incursion_stats_for_players(players_from_file, quantum_incursion_stats_key: str, row, quantum_incursion_round_timestamp: int):
+    if row is None:
+        return
+
+    for participant in row.get(QUANTUM_INCURSION_PARTICIPATION_ROWS, []):
+        # add quantum incursion stats for player
+        player_id = participant.get("player_id")
+        logging.debug(f"Processing quantum incursion participant: {player_id}")
+
+        player_by_id = players_from_file.get_player_by_id(player_id)
+        # removed players can still be in the quantum incursion stats, but we don't need their data anymore
+        if player_by_id is not None:
+            player_by_id[quantum_incursion_stats_key] = get_quantum_incursion_stats(quantum_incursion_round_timestamp, participant)
 
 
 def parse_database(dexie_db) -> Database:
@@ -367,6 +423,26 @@ def get_battlegrounds_stats(battlegrounds_round_timestamp: int, participant: dic
         "NegotiationsWon": participant.get("negotiationsWon", DEFAULT_SCORE_ZERO),
         "Attrition": participant.get("attrition", DEFAULT_SCORE_ZERO)
     }
+
+
+def get_quantum_incursion_stats(quantum_incursion_round_timestamp: int, participant: dict):
+    return {
+        "QuantumIncursionRoundTimestamp": quantum_incursion_round_timestamp,
+        "Rank": participant.get("rank", DEFAULT_SCORE_ZERO),
+        "Actions": participant.get("actions", DEFAULT_SCORE_ZERO),
+        "Progress": participant.get("progress", DEFAULT_SCORE_ZERO)
+    }
+
+
+def get_row_where_key_matches_value(table: Table, key: str, value) -> dict:
+    """
+    Find the first row in the table where the {key} has value {value}
+    :param table: The table with rows to search
+    :param key: The key that should be present in the table row
+    :param value: The value of {key} entry to look for
+    :return: The row if found, None otherwise
+    """
+    return next((r for r in table.rows if r.get(key) == value), None)
 
 
 def get_sorted_timestamp_values_from_table_rows_by_key(table: Table, key: str):

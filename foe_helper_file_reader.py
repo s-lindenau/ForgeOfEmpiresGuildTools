@@ -20,6 +20,8 @@ GUILD_MEMBER_STATS_PLAYER_TABLE = "player"
 GUILD_MEMBER_STATS_FORUM_TABLE = "forum"
 
 GUILD_BUILDINGS_KEY = "guildbuildings"
+GUILD_BUILDINGS_BUILDINGS_KEY = "buildings"
+
 GREAT_BUILDINGS_KEY = "greatbuildings"
 GREAT_BUILDING_THE_ARC = "The Arc"
 GREAT_BUILDING_OBSERVATORY = "Observatory"
@@ -47,6 +49,8 @@ FOE_LANGUAGE_DEFAULT = "en"
 PLAYER_PROFILE_LINK_TEMPLATE = "https://foestats.com/{language}/{server}/players/profile/?server={server}&world={world}&id={player_id}"
 
 DEFAULT_SCORE_ZERO = 0
+DEFAULT_VALUE_ZERO = 0
+UNKNOWN_VALUE = -1
 
 
 def read_foe_data_from_zip(zip_path: str) -> FoeGuildToolsData:
@@ -158,14 +162,14 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
     players_table = database.get_table(GUILD_MEMBER_STATS_PLAYER_TABLE)
 
     for row in players_table.rows:
-        player_rank_in_guild = row.get("rank")[1]   # array of size 2: [previous rank, current rank]
-        player_id = row.get("player_id")
-        player_name = row.get("name")
-        player_age = row.get("era")
-        player_deleted_date = row.get("deleted")    # timestamp of when deleted, 0 when still active in guild
+        player_rank_in_guild = row.get("rank", [UNKNOWN_VALUE, UNKNOWN_VALUE])[1]   # array of size 2: [previous rank, current rank]
+        player_id = row.get("player_id", UNKNOWN_VALUE)
+        player_name = row.get("name", "")
+        player_age = row.get("era", "")
+        player_deleted_date = row.get("deleted", UNKNOWN_VALUE)    # timestamp of when deleted, 0 when still active in guild
         logging.debug(f"Processing player: {player_id}")
 
-        if player_deleted_date > 0:
+        if player_deleted_date != 0:
             # deleted players are no longer relevant for the guild
             continue
 
@@ -173,10 +177,6 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
         arc = get_great_building_by_name(great_buildings, GREAT_BUILDING_THE_ARC)
         observatory = get_great_building_by_name(great_buildings, GREAT_BUILDING_OBSERVATORY)
         atomium = get_great_building_by_name(great_buildings, GREAT_BUILDING_ATOMIUM)
-
-        # TODO: guild buildings appear twice: once with a "power" entry and once with a "resources":"goods" entry. Great buildings are also in this list!
-        guild_buildings = row.get(GUILD_BUILDINGS_KEY)
-        # todo: process guild buildings
 
         parsed_player_data = {
             "Age": player_age,
@@ -186,27 +186,68 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "Arc": get_great_building_level(arc),
             "Observatory": get_great_building_level(observatory),
             "Atomium": get_great_building_level(atomium),
-            "SocialParticipation": DEFAULT_SCORE_ZERO,
+            "ForumParticipation": DEFAULT_SCORE_ZERO,
             "ExpeditionHighestTrial": DEFAULT_SCORE_ZERO,
             "ExpeditionStats": {},
             "ExpeditionStatsPrevious": {},
             "BattleGroundsStats": {},
             "BattleGroundsStatsPrevious": {},
             "QuantumIncursionStats": {},
-            "QuantumIncursionStatsPrevious": {}
+            "QuantumIncursionStatsPrevious": {},
+            "GreatBuildings": {},
+            "GuildBuildings": {},
         }
         players_from_file.add_player(player_id, player_name, parsed_player_data)
+
+        process_all_great_buildings(player_id, players_from_file, great_buildings)
+        guild_buildings = row.get(GUILD_BUILDINGS_KEY)
+        process_all_guild_buildings(player_id, players_from_file, guild_buildings)
 
     forum_table = database.get_table(GUILD_MEMBER_STATS_FORUM_TABLE)
     for row in forum_table.rows:
         # add forum stats for player
-        player_id = row.get("player_id")
+        player_id = row.get("player_id", UNKNOWN_VALUE)
         player_by_id = players_from_file.get_player_by_id(player_id)
         # removed players can still be in the stats, but we don't need their data anymore
         if player_by_id is not None:
             messages = row.get("message_id", [])
             message_count = len(messages)
-            player_by_id["SocialParticipation"] = message_count
+            player_by_id["ForumParticipation"] = message_count
+
+
+def process_all_guild_buildings(player_id, players_from_file: Players, guild_buildings):
+    if guild_buildings is None:
+        return
+
+    player_from_file = players_from_file.get_player_by_id(player_id)
+    for guild_building in guild_buildings.get("buildings", []):
+        guild_building_id = guild_building.get("gbid", DEFAULT_VALUE_ZERO)
+        player_guild_building = player_from_file.get("GuildBuildings").get(guild_building_id, {})
+
+        guild_building_name = guild_building.get("name", "Unknown")
+        guild_building_level = guild_building.get("level", DEFAULT_VALUE_ZERO)
+        player_guild_building["Name"] = guild_building_name
+        player_guild_building["Level"] = guild_building_level
+
+        guild_building_power = guild_building.get("power", None)
+        if guild_building_power is not None:
+            player_guild_building["PowerValue"] = guild_building_power.get("value", DEFAULT_VALUE_ZERO)
+
+        guild_building_resources = guild_building.get("resources", None)
+        if guild_building_resources is not None:
+            player_guild_building["TotalGoods"] = guild_building_resources.get("totalgoods", DEFAULT_VALUE_ZERO)
+
+        player_from_file.get("GuildBuildings")[guild_building_id] = player_guild_building
+
+
+def process_all_great_buildings(player_id, players_from_file: Players, great_buildings):
+    if great_buildings is None:
+        return
+
+    player_from_file = players_from_file.get_player_by_id(player_id)
+    for great_building in great_buildings:
+        great_building_name = great_building.get("name", "Unknown")
+        player_from_file.get("GreatBuildings")[great_building_name] = great_building.get("level", DEFAULT_VALUE_ZERO)
 
 
 def process_guild_expedition_file(guild_expedition_stats_path, players_from_file: Players, guild_info: GuildInfo):
@@ -231,7 +272,7 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
     current_guild_expedition_week_stats = expedition_participation_table.get_row_where_key_matches_value(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY, current_expedition_week)
     previous_guild_expedition_week_stats = expedition_participation_table.get_row_where_key_matches_value(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY, previous_expedition_week)
 
-    guild_id = current_guild_expedition_week_stats.get("currentGuildID")
+    guild_id = current_guild_expedition_week_stats.get("currentGuildID", UNKNOWN_VALUE)
     get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStats", current_guild_expedition_week_stats, current_expedition_week)
     get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStatsPrevious", previous_guild_expedition_week_stats, previous_expedition_week)
     process_guild_expedition_highest_trial(players_from_file, expedition_participation_table)
@@ -244,7 +285,7 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
 
     for participant in row.get(GUILD_EXPEDITION_PARTICIPANTS_ROWS, []):
         # Find the current guild, other guilds participating in the expedition are not relevant
-        if participant.get("guildId", 0) == guild_id:
+        if participant.get("guildId", DEFAULT_VALUE_ZERO) == guild_id:
             guild_info.server = participant.get("worldId", "")
             guild_info.world = participant.get("worldName", "")
             guild_info.guild_id = guild_id
@@ -259,7 +300,7 @@ def get_guild_expedition_stats_for_players(players_from_file: Players, expeditio
 
     for participant in row.get(GUILD_EXPEDITION_PARTICIPATION_ROWS, []):
         # add guild expedition stats for player
-        player_id = participant.get("player_id")
+        player_id = participant.get("player_id", UNKNOWN_VALUE)
         logging.debug(f"Processing guild expedition participant: {player_id}")
 
         player_by_id = players_from_file.get_player_by_id(player_id)
@@ -272,7 +313,7 @@ def process_guild_expedition_highest_trial(players_from_file: Players, expeditio
     for row in expedition_participation_table.rows:
         for participant in row.get(GUILD_EXPEDITION_PARTICIPATION_ROWS, []):
             # find the highest trial level per player
-            player_id = participant.get("player_id")
+            player_id = participant.get("player_id", UNKNOWN_VALUE)
             player_by_id = players_from_file.get_player_by_id(player_id)
             # removed players can still be in the expedition stats, but we don't need their data anymore
             if player_by_id is not None:
@@ -310,7 +351,7 @@ def get_guild_battlegrounds_stats_for_players(players_from_file: Players, battle
 
     for participant in row.get(GUILD_BATTLEGROUNDS_PARTICIPATION_ROWS, []):
         # add guild battlegrounds stats for player
-        player_id = participant.get("player_id")
+        player_id = participant.get("player_id", UNKNOWN_VALUE)
         logging.debug(f"Processing guild battlegrounds participant: {player_id}")
 
         player_by_id = players_from_file.get_player_by_id(player_id)
@@ -347,7 +388,7 @@ def get_quantum_incursion_stats_for_players(players_from_file: Players, quantum_
 
     for participant in row.get(QUANTUM_INCURSION_PARTICIPATION_ROWS, []):
         # add quantum incursion stats for player
-        player_id = participant.get("player_id")
+        player_id = participant.get("player_id", UNKNOWN_VALUE)
         logging.debug(f"Processing quantum incursion participant: {player_id}")
 
         player_by_id = players_from_file.get_player_by_id(player_id)
@@ -391,7 +432,7 @@ def get_great_building_by_name(buildings, building_name):
     if buildings is None:
         return None
     for building in buildings:
-        if building.get("name") == building_name:
+        if building.get("name", "") == building_name:
             return building
     return None
 
@@ -407,18 +448,18 @@ def get_guild_buildings_by_name(buildings, building_name, is_exact_name_match=Tr
     guild_buildings_by_name = []
     for building in guild_buildings:
         if is_exact_name_match:
-            if building.get("name") == building_name:
+            if building.get("name", "") == building_name:
                 guild_buildings_by_name.append(building)
         else:
-            if building.get("name").startswith(building_name):
+            if building.get("name", "").startswith(building_name):
                 guild_buildings_by_name.append(building)
     return guild_buildings_by_name
 
 
 def get_great_building_level(building):
     if building is None:
-        return 0
-    return building.get("level", 0)
+        return DEFAULT_VALUE_ZERO
+    return building.get("level", DEFAULT_VALUE_ZERO)
 
 
 def get_guild_buildings(buildings):

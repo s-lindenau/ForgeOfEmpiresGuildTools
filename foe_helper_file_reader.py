@@ -17,6 +17,7 @@ LOG_LEVEL = logging.INFO
 
 GUILD_MEMBER_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GuildMemberStat"
 GUILD_MEMBER_STATS_PLAYER_TABLE = "player"
+GUILD_MEMBER_STATS_FORUM_TABLE = "forum"
 
 GUILD_BUILDINGS_KEY = "guildbuildings"
 GREAT_BUILDINGS_KEY = "greatbuildings"
@@ -185,6 +186,7 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "Arc": get_great_building_level(arc),
             "Observatory": get_great_building_level(observatory),
             "Atomium": get_great_building_level(atomium),
+            "SocialParticipation": DEFAULT_SCORE_ZERO,
             "ExpeditionHighestTrial": DEFAULT_SCORE_ZERO,
             "ExpeditionStats": {},
             "ExpeditionStatsPrevious": {},
@@ -194,6 +196,17 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "QuantumIncursionStatsPrevious": {}
         }
         players_from_file.add_player(player_id, player_name, parsed_player_data)
+
+    forum_table = database.get_table(GUILD_MEMBER_STATS_FORUM_TABLE)
+    for row in forum_table.rows:
+        # add forum stats for player
+        player_id = row.get("player_id")
+        player_by_id = players_from_file.get_player_by_id(player_id)
+        # removed players can still be in the stats, but we don't need their data anymore
+        if player_by_id is not None:
+            messages = row.get("message_id", [])
+            message_count = len(messages)
+            player_by_id["SocialParticipation"] = message_count
 
 
 def process_guild_expedition_file(guild_expedition_stats_path, players_from_file: Players, guild_info: GuildInfo):

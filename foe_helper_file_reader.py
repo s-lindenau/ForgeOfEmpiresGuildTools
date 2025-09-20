@@ -185,6 +185,7 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "Arc": get_great_building_level(arc),
             "Observatory": get_great_building_level(observatory),
             "Atomium": get_great_building_level(atomium),
+            "ExpeditionHighestTrial": DEFAULT_SCORE_ZERO,
             "ExpeditionStats": {},
             "ExpeditionStatsPrevious": {},
             "BattleGroundsStats": {},
@@ -202,7 +203,7 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
 
     database = parse_database(dexie_db)
     expedition_participation_table = database.get_table(GUILD_EXPEDITION_PARTICIPATION_TABLE)
-    expedition_weeks_sorted_desc = get_sorted_timestamp_values_from_table_rows_by_key(expedition_participation_table, GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY)
+    expedition_weeks_sorted_desc = expedition_participation_table.get_sorted_values_from_rows_by_key(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY)
 
     if len(expedition_weeks_sorted_desc) < 1:
         logging.warning("No guild expedition participation found in file")
@@ -214,12 +215,13 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
     if len(expedition_weeks_sorted_desc) > 1:
         previous_expedition_week = expedition_weeks_sorted_desc[1]
 
-    current_guild_expedition_week_stats = get_row_where_key_matches_value(expedition_participation_table, GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY, current_expedition_week)
-    previous_guild_expedition_week_stats = get_row_where_key_matches_value(expedition_participation_table, GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY, previous_expedition_week)
+    current_guild_expedition_week_stats = expedition_participation_table.get_row_where_key_matches_value(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY, current_expedition_week)
+    previous_guild_expedition_week_stats = expedition_participation_table.get_row_where_key_matches_value(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY, previous_expedition_week)
 
     guild_id = current_guild_expedition_week_stats.get("currentGuildID")
     get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStats", current_guild_expedition_week_stats, current_expedition_week)
     get_guild_expedition_stats_for_players(players_from_file, "ExpeditionStatsPrevious", previous_guild_expedition_week_stats, previous_expedition_week)
+    process_guild_expedition_highest_trial(players_from_file, expedition_participation_table)
 
     expedition_ranking_table = database.get_table(GUILD_EXPEDITION_RANKING_TABLE)
     row = next((r for r in expedition_ranking_table.rows if r.get(GUILD_EXPEDITION_WEEK_DATE_TIME_EPOCH_KEY) == current_expedition_week), None)
@@ -238,7 +240,7 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
             break
 
 
-def get_guild_expedition_stats_for_players(players_from_file, expedition_stats_key: str, row, expedition_week_timestamp: int):
+def get_guild_expedition_stats_for_players(players_from_file: Players, expedition_stats_key: str, row, expedition_week_timestamp: int):
     if row is None:
         return
 
@@ -253,6 +255,20 @@ def get_guild_expedition_stats_for_players(players_from_file, expedition_stats_k
             player_by_id[expedition_stats_key] = get_expedition_stats(expedition_week_timestamp, participant)
 
 
+def process_guild_expedition_highest_trial(players_from_file: Players, expedition_participation_table: Table):
+    for row in expedition_participation_table.rows:
+        for participant in row.get(GUILD_EXPEDITION_PARTICIPATION_ROWS, []):
+            # find the highest trial level per player
+            player_id = participant.get("player_id")
+            player_by_id = players_from_file.get_player_by_id(player_id)
+            # removed players can still be in the expedition stats, but we don't need their data anymore
+            if player_by_id is not None:
+                current_trial = participant.get("trial", DEFAULT_SCORE_ZERO)
+                highest_trial = player_by_id.get("ExpeditionHighestTrial")
+                if current_trial > highest_trial:
+                    player_by_id["ExpeditionHighestTrial"] = current_trial
+
+
 def process_guild_battlegrounds_file(guild_battlegrounds_stats_path, players_from_file: Players):
     # Load the JSON data from the file
     with open(guild_battlegrounds_stats_path, mode="r", encoding="utf-8") as file:
@@ -260,7 +276,7 @@ def process_guild_battlegrounds_file(guild_battlegrounds_stats_path, players_fro
 
     database = parse_database(dexie_db)
     battlegrounds_participation_table = database.get_table(GUILD_BATTLEGROUNDS_PARTICIPATION_HISTORY_TABLE)
-    battlegrounds_rounds_sorted_desc = get_sorted_timestamp_values_from_table_rows_by_key(battlegrounds_participation_table, GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY)
+    battlegrounds_rounds_sorted_desc = battlegrounds_participation_table.get_sorted_values_from_rows_by_key(GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY)
 
     # Look back up to 2 battlegrounds rounds (current, previous) for stats
     current_battlegrounds_round = battlegrounds_rounds_sorted_desc[0]
@@ -268,14 +284,14 @@ def process_guild_battlegrounds_file(guild_battlegrounds_stats_path, players_fro
     if len(battlegrounds_rounds_sorted_desc) > 1:
         previous_battlegrounds_round = battlegrounds_rounds_sorted_desc[1]
 
-    current_battlegrounds_round_stats = get_row_where_key_matches_value(battlegrounds_participation_table, GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY, current_battlegrounds_round)
-    previous_battlegrounds_round_stats = get_row_where_key_matches_value(battlegrounds_participation_table, GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY, previous_battlegrounds_round)
+    current_battlegrounds_round_stats = battlegrounds_participation_table.get_row_where_key_matches_value(GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY, current_battlegrounds_round)
+    previous_battlegrounds_round_stats = battlegrounds_participation_table.get_row_where_key_matches_value(GUILD_BATTLEGROUNDS_ROUND_DATE_TIME_EPOCH_KEY, previous_battlegrounds_round)
 
     get_guild_battlegrounds_stats_for_players(players_from_file, "BattleGroundsStats", current_battlegrounds_round_stats, current_battlegrounds_round)
     get_guild_battlegrounds_stats_for_players(players_from_file, "BattleGroundsStatsPrevious", previous_battlegrounds_round_stats, previous_battlegrounds_round)
 
 
-def get_guild_battlegrounds_stats_for_players(players_from_file, battlegrounds_stats_key: str, row, battlegrounds_round_timestamp: int):
+def get_guild_battlegrounds_stats_for_players(players_from_file: Players, battlegrounds_stats_key: str, row, battlegrounds_round_timestamp: int):
     if row is None:
         return
 
@@ -297,7 +313,7 @@ def process_quantum_incursion_file(quantum_incursion_stats_path, players_from_fi
 
     database = parse_database(dexie_db)
     quantum_incursion_participation_table = database.get_table(QUANTUM_INCURSION_PARTICIPATION_HISTORY_TABLE)
-    quantum_incursion_rounds_sorted_desc = get_sorted_timestamp_values_from_table_rows_by_key(quantum_incursion_participation_table, QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY)
+    quantum_incursion_rounds_sorted_desc = quantum_incursion_participation_table.get_sorted_values_from_rows_by_key(QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY)
 
     # Look back up to 2 quantum incursion rounds (current, previous) for stats
     current_quantum_incursion_round = quantum_incursion_rounds_sorted_desc[0]
@@ -305,14 +321,14 @@ def process_quantum_incursion_file(quantum_incursion_stats_path, players_from_fi
     if len(quantum_incursion_rounds_sorted_desc) > 1:
         previous_quantum_incursion_round = quantum_incursion_rounds_sorted_desc[1]
 
-    current_quantum_incursion_round_stats = get_row_where_key_matches_value(quantum_incursion_participation_table, QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY, current_quantum_incursion_round)
-    previous_quantum_incursion_round_stats = get_row_where_key_matches_value(quantum_incursion_participation_table, QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY, previous_quantum_incursion_round)
+    current_quantum_incursion_round_stats = quantum_incursion_participation_table.get_row_where_key_matches_value(QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY, current_quantum_incursion_round)
+    previous_quantum_incursion_round_stats = quantum_incursion_participation_table.get_row_where_key_matches_value(QUANTUM_INCURSION_ROUND_DATE_TIME_EPOCH_KEY, previous_quantum_incursion_round)
 
     get_quantum_incursion_stats_for_players(players_from_file, "QuantumIncursionStats", current_quantum_incursion_round_stats, current_quantum_incursion_round)
     get_quantum_incursion_stats_for_players(players_from_file, "QuantumIncursionStatsPrevious", previous_quantum_incursion_round_stats, previous_quantum_incursion_round)
 
 
-def get_quantum_incursion_stats_for_players(players_from_file, quantum_incursion_stats_key: str, row, quantum_incursion_round_timestamp: int):
+def get_quantum_incursion_stats_for_players(players_from_file: Players, quantum_incursion_stats_key: str, row, quantum_incursion_round_timestamp: int):
     if row is None:
         return
 
@@ -432,33 +448,6 @@ def get_quantum_incursion_stats(quantum_incursion_round_timestamp: int, particip
         "Actions": participant.get("actions", DEFAULT_SCORE_ZERO),
         "Progress": participant.get("progress", DEFAULT_SCORE_ZERO)
     }
-
-
-def get_row_where_key_matches_value(table: Table, key: str, value) -> dict:
-    """
-    Find the first row in the table where the {key} has value {value}
-    :param table: The table with rows to search
-    :param key: The key that should be present in the table row
-    :param value: The value of {key} entry to look for
-    :return: The row if found, None otherwise
-    """
-    return next((r for r in table.rows if r.get(key) == value), None)
-
-
-def get_sorted_timestamp_values_from_table_rows_by_key(table: Table, key: str):
-    """
-    Extracts all {key} values from the rows of the given table
-    and sorts them in descending order.
-
-    Args:
-        table: A table object containing rows with {key} keys.
-        key: The key to search for in the table rows
-
-    Returns:
-        list: A list of sorted {key} values in descending order.
-    """
-    values_for_key = [row.get(key) for row in table.rows if key in row]
-    return sorted(values_for_key, reverse=True)
 
 
 def format_profile_link_template(foe_data: FoeGuildToolsData, current_player):

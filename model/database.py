@@ -31,6 +31,40 @@ class Table:
         """
         return self.rows
 
+    def get_sorted_values_from_rows_by_key(self, key: str, sort_direction: bool = True):
+        return Table.get_sorted_values_from_table_rows_by_key(self.rows, key, sort_direction)
+
+    def get_row_where_key_matches_value(self, key: str, value) -> dict:
+        return Table.get_table_row_where_key_matches_value(self.rows, key, value)
+
+    @staticmethod
+    def get_sorted_values_from_table_rows_by_key(rows: list[dict], key: str, sort_direction: bool = True):
+        """
+        Extracts all {key} values from the rows of the given table
+        and sorts them in descending order.
+
+        Args:
+            rows: A list of dicts containing rows with {key} keys.
+            key: The key to search for in the table rows
+            sort_direction: Sort order of result. True = High to Low (DESC), False = Low to High (ASC)
+
+        Returns:
+            list: A list of sorted {key} values in descending order.
+        """
+        values_for_key = [row.get(key) for row in rows if key in row]
+        return sorted(values_for_key, reverse=sort_direction)
+
+    @staticmethod
+    def get_table_row_where_key_matches_value(rows: list[dict], key: str, value) -> dict:
+        """
+        Find the first row in the table where the {key} has value {value}
+        :param rows: A list of dicts with rows to search
+        :param key: The key that should be present in the table row
+        :param value: The value of {key} entry to look for
+        :return: The row if found, None otherwise
+        """
+        return next((r for r in rows if r.get(key) == value), None)
+
 
 class Database:
     def __init__(self, format_name: str, format_version: str, database_name: str, database_version: int):

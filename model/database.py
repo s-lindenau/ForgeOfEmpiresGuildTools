@@ -49,7 +49,7 @@ class Table:
             sort_direction: Sort order of result. True = High to Low (DESC), False = Low to High (ASC)
 
         Returns:
-            list: A list of sorted {key} values in descending order.
+            list: A list of sorted {key} values in the requested {sort_direction} order.
         """
         values_for_key = [row.get(key) for row in rows if key in row]
         return sorted(values_for_key, reverse=sort_direction)

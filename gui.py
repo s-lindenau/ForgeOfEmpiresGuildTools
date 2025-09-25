@@ -172,7 +172,7 @@ class UI(QtWidgets.QWidget):
         self.list.setCurrentRow(0)
 
     def report(self):
-        txt = report(self.players)
+        txt = report(self.foe_data.players)
         dialog = QtWidgets.QMessageBox(
             QtWidgets.QMessageBox.Information, "Guild Expedition Level 2 Report", f"<pre>{txt}</pre>")
         dialog.exec_()

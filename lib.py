@@ -7,6 +7,7 @@ import os
 import logging
 import sys
 
+from model.players import Players
 from model.foe_guild_tools_data import FoeGuildToolsData
 
 # Change to DEBUG for more verbose output
@@ -37,32 +38,30 @@ total_by_age = {
     "SpaceAgeSpaceHub": 0,
 }
 
-
 ages = [
-     "BronzeAge",
-     "IronAge",
-     "EarlyMiddleAge",
-     "HighMiddleAge",
-     "LateMiddleAge",
-     "ColonialAge",
-     "IndustrialAge",
-     "ProgressiveEra",
-     "ModernEra",
-     "PostModernEra",
-     "ContemporaryEra",
-     "TomorrowEra",
-     "FutureEra",
-     "ArcticFuture",
-     "OceanicFuture",
-     "VirtualFuture",
-     "SpaceAgeMars",
-     "SpaceAgeAsteroidBelt",
-     "SpaceAgeVenus",
-     "SpaceAgeJupiterMoon",
-     "SpaceAgeTitan",
-     "SpaceAgeSpaceHub",
+    "BronzeAge",
+    "IronAge",
+    "EarlyMiddleAge",
+    "HighMiddleAge",
+    "LateMiddleAge",
+    "ColonialAge",
+    "IndustrialAge",
+    "ProgressiveEra",
+    "ModernEra",
+    "PostModernEra",
+    "ContemporaryEra",
+    "TomorrowEra",
+    "FutureEra",
+    "ArcticFuture",
+    "OceanicFuture",
+    "VirtualFuture",
+    "SpaceAgeMars",
+    "SpaceAgeAsteroidBelt",
+    "SpaceAgeVenus",
+    "SpaceAgeJupiterMoon",
+    "SpaceAgeTitan",
+    "SpaceAgeSpaceHub",
 ]
-
 
 # Age order since unlocking the 2nd level costs age goods
 # previous
@@ -182,7 +181,7 @@ def arc_goods_for_level(level):
     elif level == 9:
         return 21
     else:
-        return level*2+2
+        return level * 2 + 2
 
 
 def observatory_goods_for_level(level):
@@ -210,7 +209,7 @@ def observatory_goods_for_level(level):
     elif level == 10:
         return 8
     else:
-        return level*2-12
+        return level * 2 - 12
 
 
 def atomium_goods_for_level(level):
@@ -236,19 +235,19 @@ def atomium_goods_for_level(level):
     elif level == 9:
         return 15
     else:
-        return level*2-3
+        return level * 2 - 3
 
 
-def report(players: dict):
+def report(players: Players):
     try:
         return do_report(players)
     except Exception as e:
-        logging.error(f"Failed to generate report: {e}", exc_info=e)
+        logging.error(f"Failed to generate expedition report: {e}", exc_info=e)
 
 
-def do_report(players: dict):
+def do_report(players: Players):
     """Collection income amount by age"""
-    for player, player_data in players.items():
+    for player, player_data in players.get_all_players().items():
         if "Arc" in player_data:
             total_by_age[player_data["Age"]] += arc_goods_for_level(player_data["Arc"])
         if "Observatory" in player_data:
@@ -261,11 +260,85 @@ def do_report(players: dict):
         expeditionCost[anterior] += expeditionLevel2[player_data["Age"]]
         expeditionCost[player_data["Age"]] += 2 * expeditionLevel2[player_data["Age"]] + 4 * expeditionLevel2[player_data["Age"]]
 
-    txt = "%-20s\t%6s \t %5s" % ("Age", "Total", "Cost") + os.linesep + "-----------------------------------------" + os.linesep
+    txt = "%-20s\t%6s \t %5s" % ("Age", "Income", "Cost") + os.linesep + "-----------------------------------------" + os.linesep
     for ed in ages:
         txt += "%-20s\t%6i \t %5i" % (ed, total_by_age[ed], -expeditionCost[ed])
         txt += os.linesep
     return txt
+
+
+def members_report(players: Players):
+    try:
+        return do_members_report(players)
+    except Exception as e:
+        logging.error(f"Failed to generate members report: {e}", exc_info=e)
+
+
+def do_members_report(players: Players):
+    guild_members_size = len(players.get_all_players())
+
+    members = Players()
+    for player in players.get_all_players():
+        player_data = players.get_player_by_name(player)
+        player_id = player_data.get("player_id")
+        player_rank_in_guild = player_data.get("id")
+
+        ge_data = player_data.get("ExpeditionStats", {})
+        gbg_data = player_data.get("BattleGroundsStats", {})
+        qi_data = player_data.get("QuantumIncursionStats", {})
+
+        ge_rank = ge_data.get("Rank", -1)
+        qi_rank = qi_data.get("Rank", -1)
+        gbg_rank = gbg_data.get("Rank", -1)
+
+        member_data = {
+            "player_id": player_id,
+            "rank": player_rank_in_guild,
+            "ge_rank": ge_rank,
+            "qi_rank": qi_rank,
+            "gbg_rank": gbg_rank,
+            "overall_participation": 0,
+        }
+        member_data["overall_participation"] = calculate_participation_points(member_data, guild_members_size)
+        members.add_player(player_id, player, member_data)
+
+    members_sorted = {k: v for k, v in sorted(members.get_all_players().items(), key=lambda d: d[1]["overall_participation"], reverse=True)}
+    txt = "%-3s\t%12s \t %30s" % ("#", "Contribution", "Player") + os.linesep + "----------------------------------------------------" + os.linesep
+    for member, member_data in members_sorted.items():
+        txt += "#%-3s\t%12s \t %30s" % (member_data.get("rank"), member_data.get("overall_participation"), member)
+        txt += os.linesep
+    return txt
+
+
+def calculate_participation_points(member_data: dict, guild_size: int) -> int:
+    """Calculate the participation points for a member based on their ranks in different guild activities."""
+
+    # Current activities included are:
+    #  - Guild Expedition (GE)
+    #  - Quantum Incursion (QI)
+    #  - Guild BattleGrounds (GbG)
+    #
+    # Assume a guild size of for example 80 members
+    # - ranked 1 in the event gives 80 points
+    # - ranked 2 in the event gives 79 points
+    # - ranked n in the event gives (guild size - n + 1) points
+    # - not ranked (<1) gives 0 points
+    # - breaching guild rules gives negative(guild size) points (TODO)
+
+    total_participation_points = 0
+    guild_size_adjusted = guild_size + 1
+    ge_rank = member_data.get("ge_rank", 0)
+    qi_rank = member_data.get("qi_rank", 0)
+    gbg_rank = member_data.get("gbg_rank", 0)
+
+    if ge_rank > 0:
+        total_participation_points += guild_size_adjusted - ge_rank
+    if qi_rank > 0:
+        total_participation_points += guild_size_adjusted - qi_rank
+    if gbg_rank > 0:
+        total_participation_points += guild_size_adjusted - gbg_rank
+
+    return total_participation_points
 
 
 if __name__ == "__main__":
@@ -275,4 +348,9 @@ if __name__ == "__main__":
             format="%(asctime)s - %(levelname)s - %(message)s"
         )
     foe_data = read_data_from_stored_json()
-    print(report(foe_data.players.get_all_players()))
+    print("++ Expedition Level 2 Unlock Costs ++ ")
+    print("")
+    print(report(foe_data.players))
+    print("++ Overall member participation ++")
+    print("")
+    print(members_report(foe_data.players))

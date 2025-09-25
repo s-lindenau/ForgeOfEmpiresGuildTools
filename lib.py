@@ -193,21 +193,35 @@ def report(players: Players):
 
 
 def do_report(players: Players):
+    expedition_report_data = get_expedition_report_data(players)
+    txt = "%-20s\t%6s \t %5s" % ("Age", "Income", "Cost") + os.linesep + "-----------------------------------------" + os.linesep
+
+    for age in expedition_report_data:
+        expedition_data = expedition_report_data.get(age)
+        txt += "%-20s\t%6i \t %5i" % (expedition_data.get("age"), expedition_data.get("income"), expedition_data.get("cost"))
+        txt += os.linesep
+    return txt
+
+
+def get_expedition_report_data(players: Players) -> dict:
     """Collection income amount by age"""
     for player, player_data in players.get_all_players().items():
         if "Arc" in player_data:
             total_by_age[player_data["Age"]] += arc_goods_for_level(player_data["Arc"])
 
         # Calculate expedition costs
-        anterior = expeditionOrder[player_data["Age"]]
-        expeditionCost[anterior] += expeditionLevel2[player_data["Age"]]
+        previous_age = expeditionOrder[player_data["Age"]]
+        expeditionCost[previous_age] += expeditionLevel2[player_data["Age"]]
         expeditionCost[player_data["Age"]] += 2 * expeditionLevel2[player_data["Age"]] + 4 * expeditionLevel2[player_data["Age"]]
 
-    txt = "%-20s\t%6s \t %5s" % ("Age", "Income", "Cost") + os.linesep + "-----------------------------------------" + os.linesep
+    expedition_report_data = {}
     for ed in ages:
-        txt += "%-20s\t%6i \t %5i" % (ed, total_by_age[ed], -expeditionCost[ed])
-        txt += os.linesep
-    return txt
+        expedition_report_data[ed] = {
+            "age": ed,
+            "income": total_by_age[ed],
+            "cost": -expeditionCost[ed]
+        }
+    return expedition_report_data
 
 
 def members_report(players: Players):

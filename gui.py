@@ -133,7 +133,7 @@ class UI(QtWidgets.QWidget):
     def __init__(self, foe_data: FoeGuildToolsData, parent=None):
         super(UI, self).__init__(parent)
         self.foe_data = foe_data
-        self.players = {k: v for k, v in sorted(foe_data.players.get_all_players().items(), key=lambda d: d[1]["id"])}
+        self.players = foe_data.players.get_sorted_by_key("id")
 
         layout = QtWidgets.QGridLayout(self)
         layout_header = QtWidgets.QHBoxLayout()

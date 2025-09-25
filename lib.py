@@ -9,6 +9,7 @@ import sys
 
 from model.players import Players
 from model.foe_guild_tools_data import FoeGuildToolsData
+from util.sort_direction import SortDirection
 
 # Change to DEBUG for more verbose output
 LOG_LEVEL = logging.WARNING
@@ -302,7 +303,7 @@ def do_members_report(players: Players):
         member_data["overall_participation"] = calculate_participation_points(member_data, guild_members_size)
         members.add_player(player_id, player, member_data)
 
-    members_sorted = {k: v for k, v in sorted(members.get_all_players().items(), key=lambda d: d[1]["overall_participation"], reverse=True)}
+    members_sorted = members.get_sorted_by_key("overall_participation", SortDirection.DESCENDING)
     txt = "%-3s\t%12s \t %30s" % ("#", "Contribution", "Player") + os.linesep + "----------------------------------------------------" + os.linesep
     for member, member_data in members_sorted.items():
         txt += "#%-3s\t%12s \t %30s" % (member_data.get("rank"), member_data.get("overall_participation"), member)

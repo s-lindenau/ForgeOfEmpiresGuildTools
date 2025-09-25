@@ -1,5 +1,5 @@
 import logging
-
+from util.sort_direction import SortDirection
 
 class Table:
     def __init__(self, table_name: str, rows: list[dict] = None):
@@ -31,14 +31,14 @@ class Table:
         """
         return self.rows
 
-    def get_sorted_values_from_rows_by_key(self, key: str, sort_direction: bool = True):
+    def get_sorted_values_from_rows_by_key(self, key: str, sort_direction: str = SortDirection.DESCENDING):
         return Table.get_sorted_values_from_table_rows_by_key(self.rows, key, sort_direction)
 
     def get_row_where_key_matches_value(self, key: str, value) -> dict:
         return Table.get_table_row_where_key_matches_value(self.rows, key, value)
 
     @staticmethod
-    def get_sorted_values_from_table_rows_by_key(rows: list[dict], key: str, sort_direction: bool = True):
+    def get_sorted_values_from_table_rows_by_key(rows: list[dict], key: str, sort_direction: str = SortDirection.DESCENDING):
         """
         Extracts all {key} values from the rows of the given table
         and sorts them in descending order.
@@ -52,7 +52,7 @@ class Table:
             list: A list of sorted {key} values in the requested {sort_direction} order.
         """
         values_for_key = [row.get(key) for row in rows if key in row]
-        return sorted(values_for_key, reverse=sort_direction)
+        return sorted(values_for_key, reverse=SortDirection.get_sort_direction(sort_direction))
 
     @staticmethod
     def get_table_row_where_key_matches_value(rows: list[dict], key: str, value) -> dict:

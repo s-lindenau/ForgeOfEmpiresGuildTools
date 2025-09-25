@@ -1,5 +1,5 @@
 import json
-
+from util.sort_direction import SortDirection
 
 class Players:
     def __init__(self):
@@ -44,6 +44,15 @@ class Players:
         :return: Dictionary of all players
         """
         return self.players_by_name
+
+    def get_sorted_by_key(self, key_to_sort_on: str, sort_direction: str = SortDirection.ASCENDING) -> dict:
+        """
+        Get all players sorted by a specific key in the player data.
+        :param key_to_sort_on: the key in the player data to sort by
+        :param sort_direction: a string representing the sort direction, see `SortDirection` class
+        :return: A dictionary of players sorted by the specified key in the specified order
+        """
+        return {k: v for k, v in sorted(self.get_all_players().items(), key=lambda d: d[1][key_to_sort_on], reverse=SortDirection.get_sort_direction(sort_direction))}
 
     @classmethod
     def from_dict(cls, data: dict):

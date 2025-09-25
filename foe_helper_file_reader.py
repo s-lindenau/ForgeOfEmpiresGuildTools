@@ -171,7 +171,7 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             # deleted players are no longer relevant for the guild
             continue
 
-        great_buildings = row.get(GREAT_BUILDINGS_KEY)
+        great_buildings = row.get(GREAT_BUILDINGS_KEY, None)
         arc = get_great_building_by_name(great_buildings, GREAT_BUILDING_THE_ARC)
 
         parsed_player_data = {
@@ -194,7 +194,7 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
         players_from_file.add_player(player_id, player_name, parsed_player_data)
 
         process_all_great_buildings(player_id, players_from_file, great_buildings)
-        guild_buildings = row.get(GUILD_BUILDINGS_KEY)
+        guild_buildings = row.get(GUILD_BUILDINGS_KEY, None)
         process_all_guild_buildings(player_id, players_from_file, guild_buildings)
 
     forum_table = database.get_table(GUILD_MEMBER_STATS_FORUM_TABLE)

@@ -217,9 +217,19 @@ def members_report(players: Players):
         logging.error(f"Failed to generate members report: {e}", exc_info=e)
 
 
-def do_members_report(players: Players):
-    guild_members_size = len(players.get_all_players())
+def do_members_report(players: Players) -> str:
+    members = get_members_report_data(players)
 
+    members_sorted = members.get_sorted_by_key("overall_participation", SortDirection.DESCENDING)
+    txt = "%-3s\t%12s \t %30s" % ("#", "Contribution", "Player") + os.linesep + "----------------------------------------------------" + os.linesep
+    for member, member_data in members_sorted.items():
+        txt += "#%-3s\t%12s \t %30s" % (member_data.get("rank"), member_data.get("overall_participation"), member_data.get("player_name"))
+        txt += os.linesep
+    return txt
+
+
+def get_members_report_data(players: Players) -> Players:
+    guild_members_size = len(players.get_all_players())
     members = Players()
     for player in players.get_all_players():
         player_data = players.get_player_by_name(player)
@@ -236,6 +246,7 @@ def do_members_report(players: Players):
 
         member_data = {
             "player_id": player_id,
+            "player_name": player,
             "rank": player_rank_in_guild,
             "ge_rank": ge_rank,
             "qi_rank": qi_rank,
@@ -244,13 +255,7 @@ def do_members_report(players: Players):
         }
         member_data["overall_participation"] = calculate_participation_points(member_data, guild_members_size)
         members.add_player(player_id, player, member_data)
-
-    members_sorted = members.get_sorted_by_key("overall_participation", SortDirection.DESCENDING)
-    txt = "%-3s\t%12s \t %30s" % ("#", "Contribution", "Player") + os.linesep + "----------------------------------------------------" + os.linesep
-    for member, member_data in members_sorted.items():
-        txt += "#%-3s\t%12s \t %30s" % (member_data.get("rank"), member_data.get("overall_participation"), member)
-        txt += os.linesep
-    return txt
+    return members
 
 
 def calculate_participation_points(member_data: dict, guild_size: int) -> int:

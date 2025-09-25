@@ -1,14 +1,17 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+import os
 import json
 import logging
 
 from PyQt5 import QtWidgets, QtGui
 from pyperclip import copy as clipboard_copy
-from lib import ages, report
+from lib import ages, report, get_members_report_data
 from foe_helper_file_reader import read_foe_data_from_zip, format_profile_link_template
 from model.foe_guild_tools_data import FoeGuildToolsData
+from model.players import Players
+from util.sort_direction import SortDirection
 
 
 class PlayerGui(QtWidgets.QWidget):
@@ -102,6 +105,89 @@ class PlayerGui(QtWidgets.QWidget):
         self.arc.setValue(-1)
 
 
+class PlayerTableDialog(QtWidgets.QDialog):
+    """Dialog with a QListWidget populated with players"""
+
+    def __init__(self, window_title: str, players: Players, sort_key: str, sort_direction: str, column_count: int, column_names: list, column_functions: list, parent=None):
+        super(PlayerTableDialog, self).__init__(parent)
+        self.setWindowTitle(window_title)
+        self.setMinimumSize(400, 700)
+        self.players = players.get_sorted_by_key(sort_key, sort_direction)
+        self.column_count = column_count
+        self.column_names = column_names
+
+        assert column_count == len(column_names)
+        assert column_count == len(column_functions)
+
+        layout = QtWidgets.QVBoxLayout(self)
+
+        self.table_widget = QtWidgets.QTableWidget(self)
+        self.table_widget.setColumnCount(column_count)
+        self.table_widget.setHorizontalHeaderLabels(column_names)
+        self.table_widget.setRowCount(len(self.players))
+        layout.addWidget(self.table_widget)
+
+        for row, player in enumerate(self.players.values()):
+            for column_index, column_function in enumerate(column_functions):
+                column_value = column_function(player)
+                self.table_widget.setItem(row, column_index, column_value)
+
+        self.table_widget.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
+        self.table_widget.resizeColumnsToContents()
+
+        copy_button = QtWidgets.QPushButton("Copy bottom 10 to clipboard", self)
+        copy_button.clicked.connect(self.copy_bottom_to_clipboard)
+        layout.addWidget(copy_button)
+        close_button = QtWidgets.QPushButton("Copy selection to clipboard", self)
+        close_button.clicked.connect(self.copy_selection_to_clipboard)
+        layout.addWidget(close_button)
+
+    def copy_bottom_to_clipboard(self):
+        rows = set()
+        row_count = self.table_widget.rowCount()
+        # collect the last 10 rows (or fewer if less than 10 rows total)
+        for row in range(max(0, row_count - 10), row_count):
+            rows.add(row)
+
+        txt = PlayerTableDialog.rows_to_clipboard_text(rows, self.column_count, self.column_names, self.table_widget)
+        clipboard_copy(txt)
+
+    def copy_selection_to_clipboard(self):
+        selected_items = self.table_widget.selectedItems()
+        if not selected_items:
+            return
+        rows = set()
+        for item in selected_items:
+            rows.add(item.row())
+
+        txt = PlayerTableDialog.rows_to_clipboard_text(rows, self.column_count, self.column_names, self.table_widget)
+        clipboard_copy(txt)
+
+    @staticmethod
+    def rows_to_clipboard_text(rows: set, column_count: int, column_names: list, table_widget: QtWidgets.QTableWidget) -> str:
+        txt = ""
+        # Add column headers
+        for column_name in column_names:
+            txt += column_name + "\t"
+
+        # Add separator line
+        txt += os.linesep
+        txt += "-" * (column_count * 10)
+        txt += os.linesep
+
+        # For each requested row
+        for row in rows:
+            row_data = []
+            # For each column in that row
+            for column in range(column_count):
+                cell_item = table_widget.item(row, column)
+                if cell_item is not None:
+                    row_data.append(cell_item.text())
+                else:
+                    row_data.append("")
+            txt += "\t".join(row_data) + "\n"
+        return txt
+
 class UI(QtWidgets.QWidget):
 
     def __init__(self, foe_data: FoeGuildToolsData, parent=None):
@@ -119,12 +205,21 @@ class UI(QtWidgets.QWidget):
         layout_header.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Expanding,
             QtWidgets.QSizePolicy.Fixed))
+
         report_button = QtWidgets.QToolButton()
         report_button.setIcon(QtGui.QIcon("images/gui/report.png"))
+        report_button.setToolTip("Show Guild Expedition Report")
         layout_header.addWidget(report_button)
         layout.addLayout(layout_header, 0, 1, 1, 3)
         # noinspection PyUnresolvedReferences
         report_button.clicked.connect(self.report)
+
+        members_button = QtWidgets.QToolButton()
+        members_button.setIcon(QtGui.QIcon("images/gui/report.png"))
+        members_button.setToolTip("Show Guild Members Report")
+        layout_header.addWidget(members_button)
+        # noinspection PyUnresolvedReferences
+        members_button.clicked.connect(self.members_report)
 
         self.load_zip_button = QtWidgets.QPushButton("Load from ZIP")
         # noinspection PyUnresolvedReferences
@@ -149,6 +244,21 @@ class UI(QtWidgets.QWidget):
         txt = report(self.foe_data.players)
         dialog = QtWidgets.QMessageBox(
             QtWidgets.QMessageBox.Information, "Guild Expedition Level 2 Report", f"<pre>{txt}</pre>")
+        dialog.exec_()
+
+    def members_report(self):
+        members_report_data = get_members_report_data(self.foe_data.players)
+        sort_key = "overall_participation"
+        sort_direction = SortDirection.DESCENDING
+        column_count = 3
+        column_labels = ["# Guild Rank", "Contribution", "Player Name"]
+        column_functions = [
+            lambda player: QtWidgets.QTableWidgetItem(str(player["rank"])),
+            lambda player: QtWidgets.QTableWidgetItem(str(player["overall_participation"])),
+            lambda player: QtWidgets.QTableWidgetItem(str(player["player_name"])),
+        ]
+        window_title = "Overall member participation"
+        dialog = PlayerTableDialog(window_title, members_report_data, sort_key, sort_direction, column_count, column_labels, column_functions)
         dialog.exec_()
 
     def load_zip_file(self):

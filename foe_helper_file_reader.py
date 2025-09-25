@@ -24,8 +24,6 @@ GUILD_BUILDINGS_BUILDINGS_KEY = "buildings"
 
 GREAT_BUILDINGS_KEY = "greatbuildings"
 GREAT_BUILDING_THE_ARC = "The Arc"
-GREAT_BUILDING_OBSERVATORY = "Observatory"
-GREAT_BUILDING_ATOMIUM = "Atomium"
 
 GUILD_EXPEDITION_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GexStat"
 GUILD_EXPEDITION_PARTICIPATION_TABLE = "participation"
@@ -175,8 +173,6 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
 
         great_buildings = row.get(GREAT_BUILDINGS_KEY)
         arc = get_great_building_by_name(great_buildings, GREAT_BUILDING_THE_ARC)
-        observatory = get_great_building_by_name(great_buildings, GREAT_BUILDING_OBSERVATORY)
-        atomium = get_great_building_by_name(great_buildings, GREAT_BUILDING_ATOMIUM)
 
         parsed_player_data = {
             "Age": player_age,
@@ -184,8 +180,6 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
             "player_id": player_id,
             "player_name": player_name,
             "Arc": get_great_building_level(arc),
-            "Observatory": get_great_building_level(observatory),
-            "Atomium": get_great_building_level(atomium),
             "ForumParticipation": DEFAULT_SCORE_ZERO,
             "ExpeditionHighestTrial": DEFAULT_SCORE_ZERO,
             "ExpeditionStats": {},

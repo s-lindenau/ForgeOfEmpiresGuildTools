@@ -185,60 +185,6 @@ def arc_goods_for_level(level):
         return level * 2 + 2
 
 
-def observatory_goods_for_level(level):
-    """Goods delivered by the observatory based on the level"""
-    if level == 0:
-        return 0
-    elif level == 1:
-        return 3
-    elif level == 2:
-        return 4
-    elif level == 3:
-        return 4
-    elif level == 4:
-        return 5
-    elif level == 5:
-        return 6
-    elif level == 6:
-        return 6
-    elif level == 7:
-        return 7
-    elif level == 8:
-        return 7
-    elif level == 9:
-        return 8
-    elif level == 10:
-        return 8
-    else:
-        return level * 2 - 12
-
-
-def atomium_goods_for_level(level):
-    """Goods that the atomium delivers depending on the level"""
-    if level == 0:
-        return 0
-    elif level == 1:
-        return 6
-    elif level == 2:
-        return 7
-    elif level == 3:
-        return 8
-    elif level == 4:
-        return 9
-    elif level == 5:
-        return 11
-    elif level == 6:
-        return 12
-    elif level == 7:
-        return 13
-    elif level == 8:
-        return 14
-    elif level == 9:
-        return 15
-    else:
-        return level * 2 - 3
-
-
 def report(players: Players):
     try:
         return do_report(players)
@@ -251,10 +197,6 @@ def do_report(players: Players):
     for player, player_data in players.get_all_players().items():
         if "Arc" in player_data:
             total_by_age[player_data["Age"]] += arc_goods_for_level(player_data["Arc"])
-        if "Observatory" in player_data:
-            total_by_age[player_data["Age"]] += observatory_goods_for_level(player_data["Observatory"])
-        if "Atomium" in player_data:
-            total_by_age[player_data["Age"]] += atomium_goods_for_level(player_data["Atomium"])
 
         # Calculate expedition costs
         anterior = expeditionOrder[player_data["Age"]]

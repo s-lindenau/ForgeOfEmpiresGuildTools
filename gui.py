@@ -45,20 +45,6 @@ class PlayerGui(QtWidgets.QWidget):
         layout.addWidget(self.arc, current_row, 2)
 
         current_row += 1
-        layout.addWidget(QtWidgets.QLabel("Observatory"), current_row, 1)
-        self.observatory = QtWidgets.QSpinBox()
-        self.observatory.setRange(0, 999)
-        self.observatory.setDisabled(True)
-        layout.addWidget(self.observatory, current_row, 2)
-
-        current_row += 1
-        layout.addWidget(QtWidgets.QLabel("Atomium"), current_row, 1)
-        self.atomium = QtWidgets.QSpinBox()
-        self.atomium.setRange(0, 999)
-        self.atomium.setDisabled(True)
-        layout.addWidget(self.atomium, current_row, 2)
-
-        current_row += 1
         layout.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Fixed,
             QtWidgets.QSizePolicy.Fixed), current_row, 1)
@@ -102,16 +88,6 @@ class PlayerGui(QtWidgets.QWidget):
         else:
             self.arc.setValue(0)
 
-        if "Observatory" in player_data:
-            self.observatory.setValue(player_data["Observatory"])
-        else:
-            self.observatory.setValue(0)
-
-        if "Atomium" in player_data:
-            self.atomium.setValue(player_data["Atomium"])
-        else:
-            self.atomium.setValue(0)
-
         profile_link = format_profile_link_template(self.foe_data, player_data)
         self.profile_text_field.setText(profile_link)
         self.profile_text_field.setCursorPosition(0)
@@ -124,8 +100,6 @@ class PlayerGui(QtWidgets.QWidget):
         self.selected_player.setText("<Error, check logging>")
         self.age.setCurrentText("")
         self.arc.setValue(-1)
-        self.atomium.setValue(-1)
-        self.observatory.setValue(-1)
 
 
 class UI(QtWidgets.QWidget):

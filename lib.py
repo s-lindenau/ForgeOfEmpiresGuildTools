@@ -254,17 +254,13 @@ def get_members_report_data(players: Players) -> Players:
         gbg_data = player_data.get("BattleGroundsStats", {})
         qi_data = player_data.get("QuantumIncursionStats", {})
 
-        ge_rank = ge_data.get("Rank", -1)
-        qi_rank = qi_data.get("Rank", -1)
-        gbg_rank = gbg_data.get("Rank", -1)
-
         member_data = {
             "player_id": player_id,
             "player_name": player,
             "rank": player_rank_in_guild,
-            "ge_rank": ge_rank,
-            "qi_rank": qi_rank,
-            "gbg_rank": gbg_rank,
+            "ge_data": ge_data,
+            "qi_data": qi_data,
+            "gbg_data": gbg_data,
             "overall_participation": 0,
         }
         member_data["overall_participation"] = calculate_participation_points(member_data, guild_members_size)
@@ -289,15 +285,23 @@ def calculate_participation_points(member_data: dict, guild_size: int) -> int:
 
     total_participation_points = 0
     guild_size_adjusted = guild_size + 1
-    ge_rank = member_data.get("ge_rank", 0)
-    qi_rank = member_data.get("qi_rank", 0)
-    gbg_rank = member_data.get("gbg_rank", 0)
 
-    if ge_rank > 0:
+    ge_data = member_data.get("ge_data", {})
+    qi_data = member_data.get("qi_data", {})
+    gbg_data = member_data.get("gbg_data", {})
+
+    ge_rank = ge_data.get("Rank", -1)
+    ge_points = ge_data.get("Points", 0)
+    qi_rank = qi_data.get("Rank", -1)
+    qi_points = qi_data.get("Progress", 0)
+    gbg_rank = gbg_data.get("Rank", -1)
+    gbg_points = gbg_data.get("BattlesWon", 0) + gbg_data.get("NegotiationsWon", 0)
+
+    if ge_points > 0:
         total_participation_points += guild_size_adjusted - ge_rank
-    if qi_rank > 0:
+    if qi_points > 0:
         total_participation_points += guild_size_adjusted - qi_rank
-    if gbg_rank > 0:
+    if gbg_points > 0:
         total_participation_points += guild_size_adjusted - gbg_rank
 
     return total_participation_points

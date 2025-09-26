@@ -5,6 +5,7 @@
 import json
 import logging
 import os.path
+import random
 import tempfile
 import zipfile
 
@@ -14,6 +15,9 @@ from model.foe_guild_tools_data import GuildInfo, FoeGuildToolsData
 
 # Change to DEBUG for more verbose output
 LOG_LEVEL = logging.INFO
+
+# Change to anonymize player names, for creating screenshots
+ANONYMIZED = False
 
 GUILD_MEMBER_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GuildMemberStat"
 GUILD_MEMBER_STATS_PLAYER_TABLE = "player"
@@ -162,7 +166,10 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
     for row in players_table.rows:
         player_rank_in_guild = row.get("rank", [UNKNOWN_VALUE, UNKNOWN_VALUE])[1]   # array of size 2: [previous rank, current rank]
         player_id = row.get("player_id", UNKNOWN_VALUE)
-        player_name = row.get("name", "")
+        if ANONYMIZED is True:
+            player_name = "Player-"+str(random.randrange(80))+str(random.randrange(80))
+        else:
+            player_name = row.get("name", "")
         player_age = row.get("era", "")
         player_deleted_date = row.get("deleted", UNKNOWN_VALUE)    # timestamp of when deleted, 0 when still active in guild
         logging.debug(f"Processing player: {player_id}")

@@ -249,6 +249,7 @@ def get_members_report_data(players: Players) -> Players:
         player_data = players.get_player_by_name(player)
         player_id = player_data.get("player_id")
         player_rank_in_guild = player_data.get("id")
+        age = player_data.get("Age")
 
         ge_data = player_data.get("ExpeditionStats", {})
         gbg_data = player_data.get("BattleGroundsStats", {})
@@ -258,6 +259,7 @@ def get_members_report_data(players: Players) -> Players:
             "player_id": player_id,
             "player_name": player,
             "rank": player_rank_in_guild,
+            "age": age,
             "ge_data": ge_data,
             "qi_data": qi_data,
             "gbg_data": gbg_data,

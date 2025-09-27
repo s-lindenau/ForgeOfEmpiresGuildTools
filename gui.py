@@ -137,9 +137,11 @@ class DataTableDialog(QtWidgets.QDialog):
         self.table_widget.resizeColumnsToContents()
 
         copy_button = QtWidgets.QPushButton("Copy bottom 10 to clipboard", self)
+        # noinspection PyUnresolvedReferences
         copy_button.clicked.connect(self.copy_bottom_to_clipboard)
         layout.addWidget(copy_button)
         close_button = QtWidgets.QPushButton("Copy selection to clipboard", self)
+        # noinspection PyUnresolvedReferences
         close_button.clicked.connect(self.copy_selection_to_clipboard)
         layout.addWidget(close_button)
 
@@ -257,11 +259,12 @@ class UI(QtWidgets.QWidget):
         members_report_data = get_members_report_data(self.foe_data.players)
         sort_key = "overall_participation"
         sort_direction = SortDirection.DESCENDING
-        column_labels = ["# Guild Rank", "Contribution", "Player Name"]
+        column_labels = ["# Guild Rank", "Contribution", "Player Name", "Age"]
         column_functions = [
             lambda player: QtWidgets.QTableWidgetItem(str(player["rank"])),
             lambda player: QtWidgets.QTableWidgetItem(str(player["overall_participation"])),
             lambda player: QtWidgets.QTableWidgetItem(str(player["player_name"])),
+            lambda player: QtWidgets.QTableWidgetItem(str(player["age"])),
         ]
         window_title = "Overall member participation"
         table_data = members_report_data.get_sorted_by_key(sort_key, sort_direction)

@@ -12,12 +12,10 @@ import zipfile
 from model.database import Database, Table
 from model.players import Players
 from model.foe_guild_tools_data import GuildInfo, FoeGuildToolsData
+from util.application import application_data
 
 # Change to DEBUG for more verbose output
 LOG_LEVEL = logging.INFO
-
-# Change to anonymize player names, for creating screenshots
-ANONYMIZED = False
 
 GUILD_MEMBER_STATS_FILE_NAME_SUBSTRING = "FoeHelperDB_GuildMemberStat"
 GUILD_MEMBER_STATS_PLAYER_TABLE = "player"
@@ -166,7 +164,7 @@ def process_guild_members_file(guild_member_stats_path, players_from_file: Playe
     for row in players_table.rows:
         player_rank_in_guild = row.get("rank", [UNKNOWN_VALUE, UNKNOWN_VALUE])[1]   # array of size 2: [previous rank, current rank]
         player_id = row.get("player_id", UNKNOWN_VALUE)
-        if ANONYMIZED is True:
+        if application_data.get("anonymized") is True:
             player_name = "Player-"+str(random.randrange(80))+str(random.randrange(80))
         else:
             player_name = row.get("name", "")
@@ -290,7 +288,7 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
             guild_info.server = participant.get("worldId", "")
             guild_info.world = participant.get("worldName", "")
             guild_info.guild_id = guild_id
-            if ANONYMIZED is True:
+            if application_data.get("anonymized") is True:
                 guild_info.guild_name = '*' * len(participant.get("name", ""))
             else:
                 guild_info.guild_name = participant.get("name", "")

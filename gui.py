@@ -10,7 +10,6 @@ from pyperclip import copy as clipboard_copy
 from lib import ages, get_expedition_report_data, get_members_report_data
 from foe_helper_file_reader import read_foe_data_from_zip, format_profile_link_template
 from model.foe_guild_tools_data import FoeGuildToolsData
-from model.players import Players
 from util.sort_direction import SortDirection
 
 
@@ -190,6 +189,7 @@ class DataTableDialog(QtWidgets.QDialog):
                     row_data.append("")
             txt += "\t".join(row_data) + "\n"
         return txt
+
 
 class UI(QtWidgets.QWidget):
 

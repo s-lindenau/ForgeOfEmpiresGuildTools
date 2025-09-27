@@ -6,6 +6,7 @@ import logging
 
 from PyQt5 import QtWidgets, QtGui
 from foe_helper_file_reader import read_foe_data_from_zip
+from util.application import application_data
 from lib import read_data_from_stored_json
 from gui import UI
 
@@ -28,9 +29,9 @@ if __name__ == '__main__':
             json.dump(foe_data_read, open("data.json", "w"), indent=4, default=vars)
 
 app = QtWidgets.QApplication(sys.argv)
-app.setApplicationName("Forge of Empires Guild Tools")
-app.setApplicationDisplayName("Forge of Empires Guild Tools")
-app.setApplicationVersion("1.0.0")
+app.setApplicationName(application_data.get("name"))
+app.setApplicationDisplayName(application_data.get("name"))
+app.setApplicationVersion(application_data.get("version"))
 app.setWindowIcon(QtGui.QIcon("images/application/foe_guild_tools_icon.ico"))
 Dialog = UI(read_data_from_stored_json())
 Dialog.show()

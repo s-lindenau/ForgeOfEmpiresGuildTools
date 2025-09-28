@@ -293,17 +293,17 @@ def calculate_participation_points(member_data: dict, guild_size: int) -> int:
     gbg_data = member_data.get("gbg_data", {})
 
     ge_rank = ge_data.get("Rank", -1)
-    ge_points = ge_data.get("Points", 0)
+    ge_contribution = ge_data.get("Trial", 0)  # GE: Number of trials completed determines contribution
     qi_rank = qi_data.get("Rank", -1)
-    qi_points = qi_data.get("Progress", 0)
+    qi_contribution = qi_data.get("Progress", 0)  # Qi: Progress points on completed encounters determines contribution
     gbg_rank = gbg_data.get("Rank", -1)
-    gbg_points = gbg_data.get("BattlesWon", 0) + gbg_data.get("NegotiationsWon", 0)
+    gbg_contribution = gbg_data.get("BattlesWon", 0) + gbg_data.get("NegotiationsWon", 0)  # GbG: Battles + Negotiations determines contribution
 
-    if ge_points > 0:
+    if ge_contribution > 0 and ge_rank > 0:
         total_participation_points += guild_size_adjusted - ge_rank
-    if qi_points > 0:
+    if qi_contribution > 0 and qi_rank > 0:
         total_participation_points += guild_size_adjusted - qi_rank
-    if gbg_points > 0:
+    if gbg_contribution > 0 and gbg_rank > 0:
         total_participation_points += guild_size_adjusted - gbg_rank
 
     return total_participation_points

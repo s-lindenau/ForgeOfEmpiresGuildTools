@@ -289,7 +289,7 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
             guild_info.world = participant.get("worldName", "")
             guild_info.guild_id = guild_id
             if application_data.get("anonymized") is True:
-                guild_info.guild_name = '*' * len(participant.get("name", ""))
+                guild_info.guild_name = '*' * (len(participant.get("name", "")) + random.randrange(5, 10))
             else:
                 guild_info.guild_name = participant.get("name", "")
             logging.info(f"Found current guild in server: {guild_info}")

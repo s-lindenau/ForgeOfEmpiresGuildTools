@@ -11,6 +11,7 @@ from lib import ages, get_expedition_report_data, get_members_report_data
 from foe_helper_file_reader import read_foe_data_from_zip, format_profile_link_template
 from model.foe_guild_tools_data import FoeGuildToolsData
 from util.sort_direction import SortDirection
+from view.table_model import TableModel
 
 
 class PlayerGui(QtWidgets.QWidget):
@@ -107,28 +108,25 @@ class PlayerGui(QtWidgets.QWidget):
 class DataTableDialog(QtWidgets.QDialog):
     """Dialog with a QTableWidget populated with data"""
 
-    def __init__(self, window_title: str, data: dict, column_names: list, column_functions: list, parent=None):
+    def __init__(self, window_title: str, table_model: TableModel, parent=None):
         super(DataTableDialog, self).__init__(parent)
-        column_count = len(column_names)
+        column_count = table_model.get_column_count()
+        window_width = 150 + (100 * column_count)
+        window_height = 800
         self.setWindowTitle(window_title)
-        self.setMinimumSize(150 + (100 * column_count), 800)
-        self.data = data
-        self.column_count = column_count
-        self.column_names = column_names
-
-        assert column_count == len(column_names)
-        assert column_count == len(column_functions)
+        self.setMinimumSize(window_width, window_height)
+        self.table_model = table_model
 
         layout = QtWidgets.QVBoxLayout(self)
 
         self.table_widget = QtWidgets.QTableWidget(self)
         self.table_widget.setColumnCount(column_count)
-        self.table_widget.setHorizontalHeaderLabels(column_names)
-        self.table_widget.setRowCount(len(self.data))
+        self.table_widget.setHorizontalHeaderLabels(table_model.get_columns_names())
+        self.table_widget.setRowCount(len(table_model.get_rows()))
         layout.addWidget(self.table_widget)
 
-        for row, data_member in enumerate(self.data.values()):
-            for column_index, column_function in enumerate(column_functions):
+        for row, data_member in enumerate(table_model.get_rows().values()):
+            for column_index, column_function in enumerate(table_model.get_columns_functions()):
                 column_value = column_function(data_member)
                 self.table_widget.setItem(row, column_index, column_value)
 
@@ -151,7 +149,7 @@ class DataTableDialog(QtWidgets.QDialog):
         for row in range(max(0, row_count - 10), row_count):
             rows.add(row)
 
-        txt = DataTableDialog.rows_to_clipboard_text(rows, self.column_count, self.column_names, self.table_widget)
+        txt = DataTableDialog.rows_to_clipboard_text(rows, self.table_model.get_column_count(), self.table_model.get_columns_names(), self.table_widget)
         clipboard_copy(txt)
 
     def copy_selection_to_clipboard(self):
@@ -162,20 +160,14 @@ class DataTableDialog(QtWidgets.QDialog):
         for item in selected_items:
             rows.add(item.row())
 
-        txt = DataTableDialog.rows_to_clipboard_text(rows, self.column_count, self.column_names, self.table_widget)
+        txt = DataTableDialog.rows_to_clipboard_text(rows, self.table_model.get_column_count(), self.table_model.get_columns_names(), self.table_widget)
         clipboard_copy(txt)
 
     @staticmethod
     def rows_to_clipboard_text(rows: set, column_count: int, column_names: list, table_widget: QtWidgets.QTableWidget) -> str:
         txt = ""
         # Add column headers
-        for column_name in column_names:
-            txt += column_name + "\t"
-
-        # Add separator line
-        txt += os.linesep
-        txt += "-" * (column_count * 10)
-        txt += os.linesep
+        txt += "\t".join(column_names) + os.linesep
 
         # For each requested row
         for row in rows:
@@ -187,7 +179,8 @@ class DataTableDialog(QtWidgets.QDialog):
                     row_data.append(cell_item.text())
                 else:
                     row_data.append("")
-            txt += "\t".join(row_data) + "\n"
+            # Add column data for this row to the output
+            txt += "\t".join(row_data) + os.linesep
         return txt
 
 
@@ -225,6 +218,7 @@ class UI(QtWidgets.QWidget):
         members_button.clicked.connect(self.members_report)
 
         self.load_zip_button = QtWidgets.QPushButton("Load from ZIP")
+        self.load_zip_button.setToolTip("Load Guild data from FoE-Helper exported ZIP")
         # noinspection PyUnresolvedReferences
         self.load_zip_button.clicked.connect(self.load_zip_file)
         layout_header.addWidget(self.load_zip_button)
@@ -245,30 +239,26 @@ class UI(QtWidgets.QWidget):
 
     def report(self):
         expedition_report_data = get_expedition_report_data(self.foe_data.players)
-        column_labels = ["Age", "Income", "Cost"]
-        column_functions = [
-            lambda expedition_age: QtWidgets.QTableWidgetItem(str(expedition_age["age"])),
-            lambda expedition_age: QtWidgets.QTableWidgetItem(str(expedition_age["income"])),
-            lambda expedition_age: QtWidgets.QTableWidgetItem(str(expedition_age["cost"])),
-        ]
+        table_model = TableModel(expedition_report_data)
+        table_model.add_column("Age", lambda expedition_age: QtWidgets.QTableWidgetItem(str(expedition_age["age"])))
+        table_model.add_column("Income", lambda expedition_age: QtWidgets.QTableWidgetItem(str(expedition_age["income"])))
+        table_model.add_column("Cost", lambda expedition_age: QtWidgets.QTableWidgetItem(str(expedition_age["cost"])))
         window_title = "Expedition Level 2 Unlock Costs"
-        dialog = DataTableDialog(window_title, expedition_report_data, column_labels, column_functions)
+        dialog = DataTableDialog(window_title, table_model)
         dialog.exec_()
 
     def members_report(self):
         members_report_data = get_members_report_data(self.foe_data.players)
         sort_key = "overall_participation"
         sort_direction = SortDirection.DESCENDING
-        column_labels = ["# Guild Rank", "Contribution", "Player Name", "Age"]
-        column_functions = [
-            lambda player: QtWidgets.QTableWidgetItem(str(player["rank"])),
-            lambda player: QtWidgets.QTableWidgetItem(str(player["overall_participation"])),
-            lambda player: QtWidgets.QTableWidgetItem(str(player["player_name"])),
-            lambda player: QtWidgets.QTableWidgetItem(str(player["age"])),
-        ]
-        window_title = "Overall member participation"
         table_data = members_report_data.get_sorted_by_key(sort_key, sort_direction)
-        dialog = DataTableDialog(window_title, table_data, column_labels, column_functions)
+        table_model = TableModel(table_data)
+        table_model.add_column("# Guild Rank", lambda player: QtWidgets.QTableWidgetItem(str(player["rank"])))
+        table_model.add_column("Contribution", lambda player: QtWidgets.QTableWidgetItem(str(player["overall_participation"])))
+        table_model.add_column("Player Name", lambda player: QtWidgets.QTableWidgetItem(str(player["player_name"])))
+        table_model.add_column("Age", lambda player: QtWidgets.QTableWidgetItem(str(player["age"])))
+        window_title = "Overall member participation"
+        dialog = DataTableDialog(window_title, table_model)
         dialog.exec_()
 
     def load_zip_file(self):

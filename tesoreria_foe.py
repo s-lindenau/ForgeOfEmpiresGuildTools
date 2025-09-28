@@ -8,7 +8,7 @@ from PyQt5 import QtWidgets, QtGui
 from foe_helper_file_reader import read_foe_data_from_zip
 from util.application import application_data
 from lib import read_data_from_stored_json
-from gui import UI
+from view.gui import UI
 
 # Change to DEBUG for more verbose output
 LOG_LEVEL = logging.WARNING

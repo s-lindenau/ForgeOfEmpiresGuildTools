@@ -225,6 +225,8 @@ def process_all_guild_buildings(player_id, players_from_file: Players, guild_bui
 
         guild_building_name = guild_building.get("name", "Unknown")
         guild_building_level = guild_building.get("level", DEFAULT_VALUE_ZERO)
+        guild_building_age = guild_building.get("era", "Unknown")
+        player_guild_building["Age"] = guild_building_age
         player_guild_building["Name"] = guild_building_name
         player_guild_building["Level"] = guild_building_level
 

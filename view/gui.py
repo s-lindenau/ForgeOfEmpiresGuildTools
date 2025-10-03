@@ -257,6 +257,7 @@ class UI(QtWidgets.QWidget):
         table_model.add_column("Contribution", lambda player: QtWidgets.QTableWidgetItem(str(player["overall_participation"])))
         table_model.add_column("Player Name", lambda player: QtWidgets.QTableWidgetItem(str(player["player_name"])))
         table_model.add_column("Age", lambda player: QtWidgets.QTableWidgetItem(str(player["age"])))
+        table_model.add_column("Goods", lambda player: QtWidgets.QTableWidgetItem(str(player["goods_data"]["total_goods"])))
         window_title = "Overall member participation"
         dialog = DataTableDialog(window_title, table_model)
         dialog.exec_()

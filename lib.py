@@ -247,6 +247,9 @@ def get_members_report_data(players: Players) -> Players:
     qi_contribution_count = get_contribution_count(players, "QuantumIncursionStats", "Rank")
     gbg_contribution_count = get_contribution_count(players, "BattleGroundsStats", "Rank")
 
+    members_goods_data = get_members_goods_data(players)
+    goods_contribution_count = len(members_goods_data)
+
     members = Players()
     for player in players.get_all_players():
         player_data = players.get_player_by_name(player)
@@ -257,23 +260,53 @@ def get_members_report_data(players: Players) -> Players:
         ge_data = player_data.get("ExpeditionStats", {})
         qi_data = player_data.get("QuantumIncursionStats", {})
         gbg_data = player_data.get("BattleGroundsStats", {})
+        goods_data = members_goods_data.get(player, {})
 
         member_data = {
             "player_id": player_id,
             "player_name": player,
             "rank": player_rank_in_guild,
             "age": age,
-            "ge_data": ge_data,
-            "qi_data": qi_data,
-            "gbg_data": gbg_data,
+            "overall_participation": 0,
             "ge_contribution_count": ge_contribution_count,
             "qi_contribution_count": qi_contribution_count,
             "gbg_contribution_count": gbg_contribution_count,
-            "overall_participation": 0,
+            "goods_contribution_count": goods_contribution_count,
+            "ge_data": ge_data,
+            "qi_data": qi_data,
+            "gbg_data": gbg_data,
+            "goods_data": goods_data,
         }
         member_data["overall_participation"] = calculate_participation_points(member_data)
         members.add_player(player_id, player, member_data)
     return members
+
+
+def get_members_goods_data(players) -> dict:
+    members_goods = Players()
+    for player in players.get_all_players():
+        player_data = players.get_player_by_name(player)
+        player_total_goods = get_total_goods(player_data)
+        player_id = player_data.get("player_id")
+        member_goods_data = {
+            "total_goods": player_total_goods,
+        }
+        members_goods.add_player(player_id, player, member_goods_data)
+    # add the rank by sorting high->low
+    members_goods_ranks = members_goods.get_sorted_by_key("total_goods", sort_direction=SortDirection.DESCENDING)
+    rank = 1
+    for member_goods in members_goods_ranks:
+        members_goods_ranks.get(member_goods)["rank"] = rank
+        rank += 1
+    return members_goods_ranks
+
+
+def get_total_goods(player_data):
+    total_goods = 0
+    guild_buildings = player_data.get("GuildBuildings", {}).values()
+    for guild_building in guild_buildings:
+        total_goods += guild_building.get("TotalGoods", 0)
+    return total_goods
 
 
 def get_contribution_count(players: Players, contribution_category_key, position_key) -> int:

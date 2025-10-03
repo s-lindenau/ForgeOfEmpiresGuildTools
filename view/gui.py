@@ -194,9 +194,9 @@ class UI(QtWidgets.QWidget):
         layout = QtWidgets.QGridLayout(self)
         layout_header = QtWidgets.QHBoxLayout()
 
-        guild_name = self.foe_data.guild_info.get_guild_name()
-        self.guild_name_label = QtWidgets.QLabel(f"Guild: {guild_name}")
-        layout_header.addWidget(self.guild_name_label)
+        guild_info_text = self.foe_data.guild_info.get_guild_info_text()
+        self.guild_info_label = QtWidgets.QLabel(f"Guild: {guild_info_text}")
+        layout_header.addWidget(self.guild_info_label)
 
         layout_header.addItem(QtWidgets.QSpacerItem(
             30, 30, QtWidgets.QSizePolicy.Expanding,

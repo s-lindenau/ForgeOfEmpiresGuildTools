@@ -63,7 +63,7 @@ def read_foe_data_from_zip(zip_path: str) -> FoeGuildToolsData:
         dict: A FoeGuildToolsData object with FoE data including guild information and players.
     """
 
-    foe_guild_info = GuildInfo.from_dict({"language": FOE_LANGUAGE_DEFAULT})
+    foe_guild_info = GuildInfo.from_dict({})
 
     foe_player_data = read_players(zip_path, foe_guild_info)
 
@@ -285,13 +285,18 @@ def process_guild_expedition_file(guild_expedition_stats_path, players_from_file
     for participant in row.get(GUILD_EXPEDITION_PARTICIPANTS_ROWS, []):
         # Find the current guild, other guilds participating in the expedition are not relevant
         if participant.get("guildId", DEFAULT_VALUE_ZERO) == guild_id:
-            guild_info.server = participant.get("worldId", "")
-            guild_info.world = participant.get("worldName", "")
-            guild_info.guild_id = guild_id
             if application_data.get("anonymized") is True:
-                guild_info.guild_name = '*' * (len(participant.get("name", "")) + random.randrange(5, 10))
+                guild_info.server = '*' * 4
+                guild_info.world = '*' * random.randrange(5, 10)
+                guild_info.guild_id = guild_id  # Don't anonymize this value
+                guild_info.guild_name = '*' * random.randrange(10, 20)
+                guild_info.language = '*' * 2
             else:
+                guild_info.server = participant.get("worldId", "")
+                guild_info.world = participant.get("worldName", "")
+                guild_info.guild_id = guild_id
                 guild_info.guild_name = participant.get("name", "")
+                guild_info.language = FOE_LANGUAGE_DEFAULT
             logging.info(f"Found current guild in server: {guild_info}")
             break
 

@@ -22,6 +22,10 @@ class GuildInfo:
             data.get("guild_name")
         )
 
+    def get_guild_info_text(self):
+        name = self.get_guild_name()
+        return f"{name} on world: {self.world} ({self.server})"
+
     def get_guild_name(self):
         if self.guild_name is None:
             return "unknown"

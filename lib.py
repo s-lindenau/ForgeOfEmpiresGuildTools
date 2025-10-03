@@ -243,7 +243,10 @@ def do_members_report(players: Players) -> str:
 
 
 def get_members_report_data(players: Players) -> Players:
-    guild_members_size = len(players.get_all_players())
+    ge_contribution_count = get_contribution_count(players, "ExpeditionStats", "Rank")
+    qi_contribution_count = get_contribution_count(players, "QuantumIncursionStats", "Rank")
+    gbg_contribution_count = get_contribution_count(players, "BattleGroundsStats", "Rank")
+
     members = Players()
     for player in players.get_all_players():
         player_data = players.get_player_by_name(player)
@@ -252,8 +255,8 @@ def get_members_report_data(players: Players) -> Players:
         age = player_data.get("Age")
 
         ge_data = player_data.get("ExpeditionStats", {})
-        gbg_data = player_data.get("BattleGroundsStats", {})
         qi_data = player_data.get("QuantumIncursionStats", {})
+        gbg_data = player_data.get("BattleGroundsStats", {})
 
         member_data = {
             "player_id": player_id,
@@ -263,14 +266,28 @@ def get_members_report_data(players: Players) -> Players:
             "ge_data": ge_data,
             "qi_data": qi_data,
             "gbg_data": gbg_data,
+            "ge_contribution_count": ge_contribution_count,
+            "qi_contribution_count": qi_contribution_count,
+            "gbg_contribution_count": gbg_contribution_count,
             "overall_participation": 0,
         }
-        member_data["overall_participation"] = calculate_participation_points(member_data, guild_members_size)
+        member_data["overall_participation"] = calculate_participation_points(member_data)
         members.add_player(player_id, player, member_data)
     return members
 
 
-def calculate_participation_points(member_data: dict, guild_size: int) -> int:
+def get_contribution_count(players: Players, contribution_category_key, position_key) -> int:
+    contribution_count = 0
+    for player in players.get_all_players():
+        player_data = players.get_player_by_name(player)
+        contribution_category = player_data.get(contribution_category_key, {})
+        position = contribution_category.get(position_key, -1)
+        if position > contribution_count:
+            contribution_count = position
+    return contribution_count
+
+
+def calculate_participation_points(member_data: dict) -> int:
     """Calculate the participation points for a member based on their ranks in different guild activities."""
 
     # Current activities included are:
@@ -278,33 +295,35 @@ def calculate_participation_points(member_data: dict, guild_size: int) -> int:
     #  - Quantum Incursion (QI)
     #  - Guild BattleGrounds (GbG)
     #
-    # Assume a guild size of for example 80 members
-    # - ranked 1 in the event gives 80 points
-    # - ranked 2 in the event gives 79 points
-    # - ranked n in the event gives (guild size - n + 1) points
-    # - not ranked (<1) gives 0 points
-    # - breaching guild rules gives negative(guild size) points (TODO)
+    # Assume a guild size of for example 80 members participating in each activity
+    # - ranked 1 in the event gives 79 points
+    # - ranked 2 in the event gives 78 points
+    # - ranked n in the event gives (event participation count - n) points
+    # - not ranked (<1) or last gives 0 points
+    # - breaching guild rules gives negative(participation count) points (TODO)
 
     total_participation_points = 0
-    guild_size_adjusted = guild_size + 1
+    ge_contribution_count = member_data.get("ge_contribution_count", -1)
+    qi_contribution_count = member_data.get("qi_contribution_count", -1)
+    gbg_contribution_count = member_data.get("gbg_contribution_count", -1)
 
     ge_data = member_data.get("ge_data", {})
     qi_data = member_data.get("qi_data", {})
     gbg_data = member_data.get("gbg_data", {})
 
     ge_rank = ge_data.get("Rank", -1)
-    ge_contribution = ge_data.get("Trial", 0)  # GE: Number of trials completed determines contribution
+    ge_contribution = ge_data.get("SolvedEncounters", 0)  # GE: Number of solved encounters completed determines contribution
     qi_rank = qi_data.get("Rank", -1)
     qi_contribution = qi_data.get("Progress", 0)  # Qi: Progress points on completed encounters determines contribution
     gbg_rank = gbg_data.get("Rank", -1)
     gbg_contribution = gbg_data.get("BattlesWon", 0) + gbg_data.get("NegotiationsWon", 0)  # GbG: Battles + Negotiations determines contribution
 
     if ge_contribution > 0 and ge_rank > 0:
-        total_participation_points += guild_size_adjusted - ge_rank
+        total_participation_points += ge_contribution_count - ge_rank
     if qi_contribution > 0 and qi_rank > 0:
-        total_participation_points += guild_size_adjusted - qi_rank
+        total_participation_points += qi_contribution_count - qi_rank
     if gbg_contribution > 0 and gbg_rank > 0:
-        total_participation_points += guild_size_adjusted - gbg_rank
+        total_participation_points += gbg_contribution_count - gbg_rank
 
     return total_participation_points
 

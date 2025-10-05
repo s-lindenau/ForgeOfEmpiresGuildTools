@@ -14,6 +14,9 @@ from util.sort_direction import SortDirection
 # Change to DEBUG for more verbose output
 LOG_LEVEL = logging.WARNING
 
+CROSS = "❌"
+CHECK = "✅"
+
 total_by_age = {
     "BronzeAge": 0,
     "IronAge": 0,
@@ -277,7 +280,7 @@ def get_members_report_data(players: Players) -> Players:
             "gbg_data": gbg_data,
             "goods_data": goods_data,
         }
-        member_data["overall_participation"] = calculate_participation_points(member_data)
+        process_participation_data(member_data)
         members.add_player(player_id, player, member_data)
     return members
 
@@ -320,8 +323,8 @@ def get_contribution_count(players: Players, contribution_category_key, position
     return contribution_count
 
 
-def calculate_participation_points(member_data: dict) -> int:
-    """Calculate the participation points for a member based on their ranks in different guild activities."""
+def process_participation_data(member_data: dict):
+    """Calculate and store the participation data for a member based on their ranks in different guild activities."""
 
     # Current activities included are:
     #  - Guild Expedition (GE)
@@ -334,8 +337,12 @@ def calculate_participation_points(member_data: dict) -> int:
     # - ranked n in the event gives (event participation count - n) points
     # - not ranked (<1) or last gives 0 points
     # - breaching guild rules gives negative(participation count) points (TODO)
+    #
+    # Guild Treasury (T) goods buildings (totals) are also counted, but currently not included in the activity score
 
+    participation_summary = ""
     total_participation_points = 0
+    total_goods_contribution = member_data.get("goods_data", {}).get("total_goods", 0)
     ge_contribution_count = member_data.get("ge_contribution_count", -1)
     qi_contribution_count = member_data.get("qi_contribution_count", -1)
     gbg_contribution_count = member_data.get("gbg_contribution_count", -1)
@@ -353,12 +360,29 @@ def calculate_participation_points(member_data: dict) -> int:
 
     if ge_contribution > 0 and ge_rank > 0:
         total_participation_points += ge_contribution_count - ge_rank
+        participation_summary += "Ge: " + CHECK
+    else:
+        participation_summary += "Ge: " + CROSS
+
     if qi_contribution > 0 and qi_rank > 0:
         total_participation_points += qi_contribution_count - qi_rank
+        participation_summary += " Qi: " + CHECK
+    else:
+        participation_summary += " Qi: " + CROSS
+
     if gbg_contribution > 0 and gbg_rank > 0:
         total_participation_points += gbg_contribution_count - gbg_rank
+        participation_summary += " GbG: " + CHECK
+    else:
+        participation_summary += " GbG: " + CROSS
 
-    return total_participation_points
+    if total_goods_contribution > 0:
+        participation_summary += " T: " + CHECK
+    else:
+        participation_summary += " T: " + CROSS
+
+    member_data["overall_participation"] = total_participation_points
+    member_data["participation_summary"] = participation_summary
 
 
 if __name__ == "__main__":

@@ -238,6 +238,12 @@ class UI(QtWidgets.QWidget):
         self.list.setCurrentRow(0)
 
     def report(self):
+        try:
+            self.do_report()
+        except Exception as e:
+            logging.error(f"Failed to generate report: {e}", exc_info=e)
+
+    def do_report(self):
         expedition_report_data = get_expedition_report_data(self.foe_data.players)
         table_model = TableModel(expedition_report_data)
         table_model.add_column("Age", lambda expedition_age: QtWidgets.QTableWidgetItem(str(expedition_age["age"])))
@@ -248,6 +254,12 @@ class UI(QtWidgets.QWidget):
         dialog.exec_()
 
     def members_report(self):
+        try:
+            self.do_members_report()
+        except Exception as e:
+            logging.error(f"Failed to generate members report: {e}", exc_info=e)
+
+    def do_members_report(self):
         members_report_data = get_members_report_data(self.foe_data.players)
         sort_key = "overall_participation"
         sort_direction = SortDirection.DESCENDING
@@ -258,6 +270,7 @@ class UI(QtWidgets.QWidget):
         table_model.add_column("Player Name", lambda player: QtWidgets.QTableWidgetItem(str(player["player_name"])))
         table_model.add_column("Age", lambda player: QtWidgets.QTableWidgetItem(str(player["age"])))
         table_model.add_column("Goods", lambda player: QtWidgets.QTableWidgetItem(str(player["goods_data"]["total_goods"])))
+        table_model.add_column("Summary", lambda player: QtWidgets.QTableWidgetItem(str(player["participation_summary"])))
         window_title = "Overall member participation"
         dialog = DataTableDialog(window_title, table_model)
         dialog.exec_()

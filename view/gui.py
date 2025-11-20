@@ -266,7 +266,7 @@ class UI(QtWidgets.QWidget):
         table_data = members_report_data.get_sorted_by_key(sort_key, sort_direction)
         table_model = TableModel(table_data)
         table_model.add_column("# Guild Rank", lambda player: QtWidgets.QTableWidgetItem(str(player["rank"])))
-        table_model.add_column("Contribution", lambda player: QtWidgets.QTableWidgetItem(str(player["overall_participation"])))
+        table_model.add_column("Contribution", lambda player: QtWidgets.QTableWidgetItem(str(round(player["overall_participation"]))))
         table_model.add_column("Player Name", lambda player: QtWidgets.QTableWidgetItem(str(player["player_name"])))
         table_model.add_column("Age", lambda player: QtWidgets.QTableWidgetItem(str(player["age"])))
         table_model.add_column("Goods", lambda player: QtWidgets.QTableWidgetItem(str(player["goods_data"]["total_goods"])))

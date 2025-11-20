@@ -17,6 +17,16 @@ LOG_LEVEL = logging.WARNING
 CROSS = "❌"
 CHECK = "✅"
 
+participation_configuration = {
+    "current_activity_weight": 1.0,
+    "previous_activity_weight": 0.5,
+    "social_activity_weight": 0.005,
+    "ge_minimum_solved_encounters": 0,
+    "qi_minimum_progress_points": 0,
+    "gbg_minimum_battles_plus_negotiations": 0,
+    "goods_minimum_treasury_buildings_production": 0,
+}
+
 total_by_age = {
     "BronzeAge": 0,
     "IronAge": 0,
@@ -250,6 +260,10 @@ def get_members_report_data(players: Players) -> Players:
     qi_contribution_count = get_contribution_count(players, "QuantumIncursionStats", "Rank")
     gbg_contribution_count = get_contribution_count(players, "BattleGroundsStats", "Rank")
 
+    ge_contribution_previous_count = get_contribution_count(players, "ExpeditionStatsPrevious", "Rank")
+    qi_contribution_previous_count = get_contribution_count(players, "QuantumIncursionStatsPrevious", "Rank")
+    gbg_contribution_previous_count = get_contribution_count(players, "BattleGroundsStatsPrevious", "Rank")
+
     members_goods_data = get_members_goods_data(players)
     goods_contribution_count = len(members_goods_data)
 
@@ -263,6 +277,10 @@ def get_members_report_data(players: Players) -> Players:
         ge_data = player_data.get("ExpeditionStats", {})
         qi_data = player_data.get("QuantumIncursionStats", {})
         gbg_data = player_data.get("BattleGroundsStats", {})
+        ge_data_previous = player_data.get("ExpeditionStatsPrevious", {})
+        qi_data_previous = player_data.get("QuantumIncursionStatsPrevious", {})
+        gbg_data_previous = player_data.get("BattleGroundsStatsPrevious", {})
+        forum_participation = player_data.get("ForumParticipation", 0)
         goods_data = members_goods_data.get(player, {})
 
         member_data = {
@@ -274,10 +292,17 @@ def get_members_report_data(players: Players) -> Players:
             "ge_contribution_count": ge_contribution_count,
             "qi_contribution_count": qi_contribution_count,
             "gbg_contribution_count": gbg_contribution_count,
+            "ge_contribution_previous_count": ge_contribution_previous_count,
+            "qi_contribution_previous_count": qi_contribution_previous_count,
+            "gbg_contribution_previous_count": gbg_contribution_previous_count,
             "goods_contribution_count": goods_contribution_count,
             "ge_data": ge_data,
             "qi_data": qi_data,
             "gbg_data": gbg_data,
+            "ge_data_previous": ge_data_previous,
+            "qi_data_previous": qi_data_previous,
+            "gbg_data_previous": gbg_data_previous,
+            "forum_participation": forum_participation,
             "goods_data": goods_data,
         }
         process_participation_data(member_data)
@@ -330,48 +355,70 @@ def process_participation_data(member_data: dict):
     #  - Guild Expedition (GE)
     #  - Quantum Incursion (QI)
     #  - Guild BattleGrounds (GbG)
+    #  - Message Boards (Social Interaction)
     #
     # Assume a guild size of for example 80 members participating in each activity
-    # - ranked 1 in the event gives 79 points
-    # - ranked 2 in the event gives 78 points
-    # - ranked n in the event gives (event participation count - n) points
-    # - not ranked (<1) or last gives 0 points
-    # - breaching guild rules gives negative(participation count) points (TODO)
+    # - ranked 1 in the event gives 79 participation points
+    # - ranked 2 in the event gives 78 participation points
+    # - ranked n in the event gives (event participation count - n) participation points
+    # - not ranked (<1) or last gives 0 participation points
+    # - breaching guild rules gives negative(participation points) (TODO process minimum requirements)
     #
-    # Guild Treasury (T) goods buildings (totals) are also counted, but currently not included in the activity score
+    # For the 3 recurring events the current running/completed season and the previous completed season are both counted.
+    # Individual weights for both can be configured as a percentage, where 1 = 100%.
+    # For example a weight of 0.5 would give a participation score of 79 * 0.5 = 39.5 points for ranking 1st.
+    #
+    # Social interaction on the message boards is also counted, but by default with a very low weight. (TODO process message boards)
+    # This is added to make a difference between 2 members that may both score very low, so the guild may choose to keep
+    # the member that is at least joining in guild discussions and other activities in the message boards.
+    #
+    # All these points are then added together, resulting in one "Overall Participation Score/Count"
+    #
+    # Guild Treasury (T) goods buildings (total production) are also counted, but currently not included in the activity score
+    # This is added to the summary, so it can be quickly inspected which members have treasury buildings in their city.
 
+    rank_key = "Rank"
     participation_summary = ""
     total_participation_points = 0
     total_goods_contribution = member_data.get("goods_data", {}).get("total_goods", 0)
-    ge_contribution_count = member_data.get("ge_contribution_count", -1)
-    qi_contribution_count = member_data.get("qi_contribution_count", -1)
-    gbg_contribution_count = member_data.get("gbg_contribution_count", -1)
 
-    ge_data = member_data.get("ge_data", {})
-    qi_data = member_data.get("qi_data", {})
-    gbg_data = member_data.get("gbg_data", {})
+    ge_data_key = "ge_data"
+    ge_data_previous_key = "ge_data_previous"
+    ge_contributors_key = "ge_contribution_count"
+    ge_contributors_previous_key = "ge_contribution_previous_count"
 
-    ge_rank = ge_data.get("Rank", -1)
-    ge_contribution = ge_data.get("SolvedEncounters", 0)  # GE: Number of solved encounters completed determines contribution
-    qi_rank = qi_data.get("Rank", -1)
-    qi_contribution = qi_data.get("Progress", 0)  # Qi: Progress points on completed encounters determines contribution
-    gbg_rank = gbg_data.get("Rank", -1)
-    gbg_contribution = gbg_data.get("BattlesWon", 0) + gbg_data.get("NegotiationsWon", 0)  # GbG: Battles + Negotiations determines contribution
+    qi_data_key = "qi_data"
+    qi_data_previous_key = "qi_data_previous"
+    qi_contributors_key = "qi_contribution_count"
+    qi_contributors_previous_key = "qi_contribution_previous_count"
 
-    if ge_contribution > 0 and ge_rank > 0:
-        total_participation_points += ge_contribution_count - ge_rank
+    gbg_data_key = "gbg_data"
+    gbg_data_previous_key = "gbg_data_previous"
+    gbg_contributors_key = "gbg_contribution_count"
+    gbg_contributors_previous_key = "gbg_contribution_previous_count"
+
+    ge_contribution_function = lambda data: data.get("SolvedEncounters", 0)  # GE: Number of solved encounters completed determines contribution
+    qi_contribution_function = lambda data: data.get("Progress", 0)  # Qi: Progress points on completed encounters determines contribution
+    gbg_contribution_function = lambda data: data.get("BattlesWon", 0) + data.get("NegotiationsWon", 0)  # GbG: Battles + Negotiations determines contribution
+
+    ge_participation_points = process_participation_activity(member_data, ge_data_key, ge_data_previous_key, ge_contributors_key, ge_contributors_previous_key, rank_key, ge_contribution_function)
+    qi_participation_points = process_participation_activity(member_data, qi_data_key, qi_data_previous_key, qi_contributors_key, qi_contributors_previous_key, rank_key, qi_contribution_function)
+    gbg_participation_points = process_participation_activity(member_data, gbg_data_key, gbg_data_previous_key, gbg_contributors_key, gbg_contributors_previous_key, rank_key, gbg_contribution_function)
+
+    if ge_participation_points > 0:
+        total_participation_points += ge_participation_points
         participation_summary += "Ge: " + CHECK
     else:
         participation_summary += "Ge: " + CROSS
 
-    if qi_contribution > 0 and qi_rank > 0:
-        total_participation_points += qi_contribution_count - qi_rank
+    if qi_participation_points > 0:
+        total_participation_points += qi_participation_points
         participation_summary += " Qi: " + CHECK
     else:
         participation_summary += " Qi: " + CROSS
 
-    if gbg_contribution > 0 and gbg_rank > 0:
-        total_participation_points += gbg_contribution_count - gbg_rank
+    if gbg_participation_points > 0:
+        total_participation_points += gbg_participation_points
         participation_summary += " GbG: " + CHECK
     else:
         participation_summary += " GbG: " + CROSS
@@ -383,6 +430,45 @@ def process_participation_data(member_data: dict):
 
     member_data["overall_participation"] = total_participation_points
     member_data["participation_summary"] = participation_summary
+
+
+def process_participation_activity(member_data: dict,
+                                   current_activity_key: str,
+                                   previous_activity_key: str,
+                                   contributors_count_key: str,
+                                   contributors_count_key_previous: str,
+                                   activity_rank_key: str,
+                                   contribution_points_from_data_function):
+
+    current_contribution_weight = participation_configuration.get("current_activity_weight", 1)
+    previous_contribution_weight = participation_configuration.get("previous_activity_weight", 1)
+
+    # Current activity
+    activity_data = member_data.get(current_activity_key, {})
+    contributors_count = member_data.get(contributors_count_key)
+
+    contribution_points = contribution_points_from_data_function(activity_data)
+    contribution_rank = activity_data.get(activity_rank_key, -1)
+
+    # Previous activity
+    activity_data_previous = member_data.get(previous_activity_key, {})
+    contributors_count_previous = member_data.get(contributors_count_key_previous)
+
+    contribution_points_previous = contribution_points_from_data_function(activity_data_previous)
+    contribution_rank_previous = activity_data_previous.get(activity_rank_key, -1)
+
+    # Sum current and previous with their individual weights
+    current_and_previous_contribution = 0
+
+    if contribution_points > 0 and contribution_rank > 0:
+        contribution_points = contributors_count - contribution_rank
+        current_and_previous_contribution += (contribution_points * current_contribution_weight)
+
+    if contribution_points_previous > 0 and contribution_rank_previous > 0:
+        contribution_points_previous = contributors_count_previous - contribution_rank_previous
+        current_and_previous_contribution += (contribution_points_previous * previous_contribution_weight)
+
+    return current_and_previous_contribution
 
 
 if __name__ == "__main__":
